@@ -3,15 +3,37 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from datasets import load_dataset
+from datasets import load_dataset as _timm_load_dataset
 from huggingface_hub import hf_hub_download
 from timm import create_model
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
 
-def load_primitive_dataset(repo_id: str):
-    return load_dataset(repo_id, keep_in_memory=True, num_proc=6)
+def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train', transforms: Optional = None):
+    dataset = _timm_load_dataset(repo_id, split=split)
+
+    def _trans(row):
+        images = []
+        for image in row['webp']:
+            if transforms:
+                image = transforms(image)
+            images.append(image)
+        row['image'] = images
+
+        all_labels = []
+        for json_ in row['json']:
+            labels = np.zeros(len(tags_to_id), dtype=np.float32)
+            for tag in [*json_['rating'], *json_['general_tags'], *json_['character_tags']]:
+                labels[tags_to_id[tag]] = 1.0
+            all_labels.append(labels)
+        row['labels'] = all_labels
+        return row
+
+        # return {'image': images, 'labels': all_labels}
+
+    dataset = dataset.with_transform(_trans)
+    return dataset
 
 
 @dataclass
@@ -74,7 +96,6 @@ class MultiLabelDataset(Dataset):
 
 if __name__ == '__main__':
     rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-50k'
-    dataset = load_primitive_dataset(rid)
     tags_info = load_tags(rid)
 
     mid = "resnet50"
@@ -89,23 +110,32 @@ if __name__ == '__main__':
     )
     print(trans)
 
-    ds = MultiLabelDataset(
-        primitive_dataset=dataset,
+    # ds = MultiLabelDataset(
+    #     primitive_dataset=dataset,
+    #     split='train',
+    #     tags_to_id=tags_info.tags_to_id,
+    #     transforms=trans,
+    # )
+
+    dataset = load_dataset(
+        repo_id=rid,
         split='train',
         tags_to_id=tags_info.tags_to_id,
         transforms=trans,
     )
 
-    input_, output = ds[1]
-    print(input_, output)
-    print(input_.shape, output.shape)
+    print(dataset[0])
+
+    # input_, output = ds[1]
+    # print(input_, output)
+    # print(input_.shape, output.shape)
 
     for i in tqdm(range(1000)):
-        _ = dataset['train'][i]
+        _ = dataset[i]
     # for i in tqdm(range(1000)):
     #     _ = dataset[i]
 
-    for i in tqdm(range(1000)):
-        _ = ds[i]
+    # for i in tqdm(range(1000)):
+    #     _ = ds[i]
     # for i in tqdm(range(1000)):
     #     _ = ds[i]
