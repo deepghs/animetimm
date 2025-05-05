@@ -112,59 +112,12 @@ def load_tags(repo_id: str) -> TagsInfo:
 
 if __name__ == '__main__':
     rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-full'
-    tags_info = load_tags(rid)
-
     mid = "resnet50"
     model = create_model(mid, pretrained=False)
-    # from .augmentation import create_transforms
-    #
-    # is_training = True
-    #
-    # trans = create_transforms(
-    #     timm_model=model,
-    #     is_training=is_training,
-    #     # use_test_size=True,
-    #     cutout_patches=1,
-    # )
-    # print(trans)
-    #
-    # dataset = load_dataset(
-    #     repo_id=rid,
-    #     split='train',
-    #     tags_to_id=tags_info.tags_to_id,
-    #     transforms=trans,
-    # )
-    #
-    # print(dataset[0])
-    #
-    #
-    # # for i in tqdm(range(1000)):
-    # #     _ = dataset[i]
-    #
-    # def collate_fn(examples):
-    #     images = []
-    #     labels = []
-    #     for example in examples:
-    #         images.append((example["image"]))
-    #         labels.append(example["labels"])
-    #
-    #     pixel_values = torch.stack(images)
-    #     labels = torch.stack(labels)
-    #     return {"pixel_values": pixel_values, "labels": labels}
-    #
-    #
-    # dataloader = DataLoader(
-    #     dataset,
-    #     collate_fn=collate_fn,
-    #     batch_size=256,
-    #     num_workers=128,
-    #     shuffle=is_training,
-    #     drop_last=is_training,
-    # )
     dataloader = load_dataloader(
         repo_id=rid,
         model=model,
-        split='test',
+        split='train',
     )
 
     ix, ox = None, None
