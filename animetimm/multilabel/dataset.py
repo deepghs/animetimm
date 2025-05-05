@@ -3,10 +3,11 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+import torch
 from datasets import load_dataset as _timm_load_dataset
 from huggingface_hub import hf_hub_download
 from timm import create_model
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
@@ -23,14 +24,12 @@ def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train',
 
         all_labels = []
         for json_ in row['json']:
-            labels = np.zeros(len(tags_to_id), dtype=np.float32)
+            labels = torch.zeros(len(tags_to_id), dtype=torch.float32)
             for tag in [*json_['rating'], *json_['general_tags'], *json_['character_tags']]:
                 labels[tags_to_id[tag]] = 1.0
             all_labels.append(labels)
         row['labels'] = all_labels
         return row
-
-        # return {'image': images, 'labels': all_labels}
 
     dataset = dataset.with_transform(_trans)
     return dataset
@@ -69,31 +68,6 @@ def load_tags(repo_id: str) -> TagsInfo:
     )
 
 
-class MultiLabelDataset(Dataset):
-    def __init__(self, primitive_dataset, split: str, tags_to_id: Dict[str, int],
-                 transforms: Optional = None):
-        self.primitive_dataset = primitive_dataset
-        self.split = split
-        self.tags_to_id = tags_to_id
-        self.transforms = transforms
-
-    def __getitem__(self, index):
-        row = self.primitive_dataset[self.split][index]
-
-        image = row['webp']
-        if self.transforms:
-            image = self.transforms(image)
-
-        labels = np.zeros(len(self.tags_to_id), dtype=np.float32)
-        for tag in [*row['json']['rating'], *row['json']['general_tags'], *row['json']['character_tags']]:
-            labels[self.tags_to_id[tag]] = 1.0
-
-        return image, labels
-
-    def __len__(self):
-        return len(self.primitive_dataset)
-
-
 if __name__ == '__main__':
     rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-50k'
     tags_info = load_tags(rid)
@@ -110,13 +84,6 @@ if __name__ == '__main__':
     )
     print(trans)
 
-    # ds = MultiLabelDataset(
-    #     primitive_dataset=dataset,
-    #     split='train',
-    #     tags_to_id=tags_info.tags_to_id,
-    #     transforms=trans,
-    # )
-
     dataset = load_dataset(
         repo_id=rid,
         split='train',
@@ -126,16 +93,23 @@ if __name__ == '__main__':
 
     print(dataset[0])
 
-    # input_, output = ds[1]
-    # print(input_, output)
-    # print(input_.shape, output.shape)
-
     for i in tqdm(range(1000)):
         _ = dataset[i]
-    # for i in tqdm(range(1000)):
-    #     _ = dataset[i]
 
-    # for i in tqdm(range(1000)):
-    #     _ = ds[i]
-    # for i in tqdm(range(1000)):
-    #     _ = ds[i]
+
+    def collate_fn(examples):
+        images = []
+        labels = []
+        for example in examples:
+            images.append((example["image"]))
+            labels.append(example["labels"])
+
+        pixel_values = torch.stack(images)
+        labels = torch.stack(labels)
+        return {"pixel_values": pixel_values, "labels": labels}
+
+
+    dataloader = DataLoader(dataset, collate_fn=collate_fn, batch_size=16)
+
+    for x in tqdm(dataloader):
+        pass
