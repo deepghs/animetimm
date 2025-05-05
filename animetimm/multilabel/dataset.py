@@ -164,7 +164,7 @@ if __name__ == '__main__':
     dataloader = load_dataloader(
         repo_id=rid,
         model=model,
-        split='validation',
+        split='test',
     )
 
     ix, ox = None, None
