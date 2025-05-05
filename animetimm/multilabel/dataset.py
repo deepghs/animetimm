@@ -60,7 +60,6 @@ class MultiLabelDataset(Dataset):
         row = self.primitive_dataset[self.split][index]
 
         image = row['webp']
-        image = load_image(image, mode='RGB', force_background='white')
         if self.transforms:
             image = self.transforms(image)
 
