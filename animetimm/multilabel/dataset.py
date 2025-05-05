@@ -12,7 +12,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
-def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train', transforms: Optional = None):
+def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train',
+                 transforms: Optional = None, is_training: bool = False):
     dataset = _timm_load_dataset(repo_id, split=split)
 
     def _trans(row):
@@ -32,7 +33,10 @@ def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train',
         row['labels'] = all_labels
         return row
 
-    dataset = dataset.with_transform(_trans)
+    if is_training:
+        dataset = dataset.with_transform(_trans)
+    else:
+        dataset = dataset.map(_trans)
     return dataset
 
 
@@ -77,9 +81,11 @@ if __name__ == '__main__':
     model = create_model(mid, pretrained=False)
     from .augmentation import create_transforms
 
+    is_training = False
+
     trans = create_transforms(
         timm_model=model,
-        is_training=True,
+        is_training=is_training,
         # use_test_size=True,
         cutout_patches=1,
     )
@@ -90,13 +96,14 @@ if __name__ == '__main__':
         split='train',
         tags_to_id=tags_info.tags_to_id,
         transforms=trans,
+        is_training=is_training,
     )
 
     print(dataset[0])
 
+
     # for i in tqdm(range(1000)):
     #     _ = dataset[i]
-
 
     def collate_fn(examples):
         images = []
