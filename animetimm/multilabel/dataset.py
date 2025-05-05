@@ -167,7 +167,12 @@ if __name__ == '__main__':
         split='validation',
     )
 
-    for x in tqdm(dataloader):
-        # print(x)
-        # quit()
-        pass
+    ix, ox = None, None
+    for input_, output in tqdm(dataloader):
+        if ix is None:
+            ix = input_.shape, input_.dtype
+            ox = output.shape, output.dtype
+            print(ix, ox)
+        else:
+            assert ix == (input_.shape, input_.dtype)
+            assert ox == (output.shape, output.dtype)
