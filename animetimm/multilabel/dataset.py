@@ -93,8 +93,8 @@ if __name__ == '__main__':
 
     print(dataset[0])
 
-    for i in tqdm(range(1000)):
-        _ = dataset[i]
+    # for i in tqdm(range(1000)):
+    #     _ = dataset[i]
 
 
     def collate_fn(examples):
