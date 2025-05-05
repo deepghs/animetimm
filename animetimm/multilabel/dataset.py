@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 
 def load_primitive_dataset(repo_id: str):
-    return load_dataset(repo_id, num_proc=24)
+    return load_dataset(repo_id, keep_in_memory=True)
 
 
 @dataclass
@@ -85,8 +85,8 @@ if __name__ == '__main__':
 
     trans = create_transforms(
         timm_model=model,
-        is_training=False,
-        use_test_size=True,
+        is_training=True,
+        # use_test_size=True,
         cutout_patches=1,
     )
     print(trans)
@@ -102,5 +102,7 @@ if __name__ == '__main__':
     print(input_, output)
     print(input_.shape, output.shape)
 
+    for i in tqdm(range(1000)):
+        _ = ds[i]
     for i in tqdm(range(1000)):
         _ = ds[i]
