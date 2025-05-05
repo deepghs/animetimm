@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 
 def load_primitive_dataset(repo_id: str):
-    return load_dataset(repo_id, keep_in_memory=True)
+    return load_dataset(repo_id, keep_in_memory=True, num_proc=6)
 
 
 @dataclass
