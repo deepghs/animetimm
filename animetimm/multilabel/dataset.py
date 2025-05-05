@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from datasets import load_dataset
 from huggingface_hub import hf_hub_download
-from imgutils.data import load_image
 from timm import create_model
 from torch.utils.data import Dataset
 from tqdm import tqdm
@@ -102,6 +101,11 @@ if __name__ == '__main__':
     print(input_.shape, output.shape)
 
     for i in tqdm(range(1000)):
-        _ = ds[i]
+        _ = dataset['train'][i]
+    # for i in tqdm(range(1000)):
+    #     _ = dataset[i]
+
     for i in tqdm(range(1000)):
         _ = ds[i]
+    # for i in tqdm(range(1000)):
+    #     _ = ds[i]
