@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from itertools import chain
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Literal
 
 import numpy as np
 import pandas as pd
@@ -12,9 +12,11 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
-def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train',
+def load_dataset(repo_id: str, split: str = 'train',
                  transforms: Optional = None):
     dataset = _timm_load_dataset(repo_id, split=split)
+    tags_info = load_tags(repo_id)
+    tags_to_id = tags_info.tags_to_id
 
     def _trans(row):
         images = []
@@ -35,6 +37,43 @@ def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train',
 
     dataset = dataset.with_transform(_trans)
     return dataset
+
+
+def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'val'] = 'train'):
+    from .augmentation import create_transforms
+    trans, post_trans = create_transforms(
+        timm_model=model,
+        is_training=split == 'train',
+        use_test_size=split == 'test',
+        cutout_patches=1,
+    )
+    dataset = load_dataset(
+        repo_id=repo_id,
+        split=split,
+        transforms=trans,
+    )
+
+    def collate_fn(examples):
+        images = []
+        labels = []
+        for example in examples:
+            images.append((example["image"]))
+            labels.append(example["labels"])
+
+        pixel_values = torch.stack(images)
+        labels = torch.stack(labels)
+        pixel_values, labels = post_trans((pixel_values, labels))
+        return pixel_values, labels
+
+    dataloader = DataLoader(
+        dataset,
+        collate_fn=collate_fn,
+        batch_size=256,
+        num_workers=128,
+        shuffle=split == 'train',
+        drop_last=split == 'train',
+    )
+    return dataloader
 
 
 @dataclass
@@ -76,50 +115,55 @@ if __name__ == '__main__':
 
     mid = "resnet50"
     model = create_model(mid, pretrained=False)
-    from .augmentation import create_transforms
-
-    is_training = True
-
-    trans = create_transforms(
-        timm_model=model,
-        is_training=is_training,
-        # use_test_size=True,
-        cutout_patches=1,
-    )
-    print(trans)
-
-    dataset = load_dataset(
+    # from .augmentation import create_transforms
+    #
+    # is_training = True
+    #
+    # trans = create_transforms(
+    #     timm_model=model,
+    #     is_training=is_training,
+    #     # use_test_size=True,
+    #     cutout_patches=1,
+    # )
+    # print(trans)
+    #
+    # dataset = load_dataset(
+    #     repo_id=rid,
+    #     split='train',
+    #     tags_to_id=tags_info.tags_to_id,
+    #     transforms=trans,
+    # )
+    #
+    # print(dataset[0])
+    #
+    #
+    # # for i in tqdm(range(1000)):
+    # #     _ = dataset[i]
+    #
+    # def collate_fn(examples):
+    #     images = []
+    #     labels = []
+    #     for example in examples:
+    #         images.append((example["image"]))
+    #         labels.append(example["labels"])
+    #
+    #     pixel_values = torch.stack(images)
+    #     labels = torch.stack(labels)
+    #     return {"pixel_values": pixel_values, "labels": labels}
+    #
+    #
+    # dataloader = DataLoader(
+    #     dataset,
+    #     collate_fn=collate_fn,
+    #     batch_size=256,
+    #     num_workers=128,
+    #     shuffle=is_training,
+    #     drop_last=is_training,
+    # )
+    dataloader = load_dataloader(
         repo_id=rid,
+        model=model,
         split='train',
-        tags_to_id=tags_info.tags_to_id,
-        transforms=trans,
-    )
-
-    print(dataset[0])
-
-
-    # for i in tqdm(range(1000)):
-    #     _ = dataset[i]
-
-    def collate_fn(examples):
-        images = []
-        labels = []
-        for example in examples:
-            images.append((example["image"]))
-            labels.append(example["labels"])
-
-        pixel_values = torch.stack(images)
-        labels = torch.stack(labels)
-        return {"pixel_values": pixel_values, "labels": labels}
-
-
-    dataloader = DataLoader(
-        dataset,
-        collate_fn=collate_fn,
-        batch_size=256,
-        num_workers=128,
-        shuffle=is_training,
-        drop_last=is_training,
     )
 
     for x in tqdm(dataloader):

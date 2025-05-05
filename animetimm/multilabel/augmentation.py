@@ -54,8 +54,28 @@ class Cutout:
         return f"{self.__class__.__name__}(max_pct={self.max_pct}, replace={self.replace}, patches={self.patches})"
 
 
+class MixupTransform:
+    def __init__(self, alpha=0.2):
+        self.alpha = alpha
+
+    def __call__(self, batch):
+        images, labels = batch
+        batch_size = images.size(0)
+        lam = sample_beta_distribution(batch_size, self.alpha, self.alpha)
+        lam = lam.to(images.device)
+        indices = torch.randperm(batch_size).to(images.device)
+        lam_reshaped = lam.view(-1, 1, 1, 1)
+        mixed_images = lam_reshaped * images + (1 - lam_reshaped) * images[indices]
+        lam_reshaped = lam.view(-1, 1)
+        mixed_labels = lam_reshaped * labels + (1 - lam_reshaped) * labels[indices]
+        return mixed_images, mixed_labels
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(alpha={self.alpha})"
+
+
 def create_transforms(timm_model, is_training: bool = False, use_test_size: bool = False,
-                      noise_level: int = 2, rotation_ratio: float = 0.25,
+                      noise_level: int = 2, rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
                       cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True):
     config = resolve_data_config({}, model=timm_model, use_test_size=use_test_size)
     image_size = config['input_size'][-2]
@@ -81,6 +101,6 @@ def create_transforms(timm_model, is_training: bool = False, use_test_size: bool
             transform_list.append(Cutout(max_pct=cutout_max_pct, patches=cutout_patches))
         transform_list.append(transforms.Normalize(mean=config['mean'], std=config['std']))
 
-        return transforms.Compose(transform_list)
+        return transforms.Compose(transform_list), MixupTransform(mixup_alpha)
     else:
-        return _timm_create_transform(**config, is_training=is_training)
+        return _timm_create_transform(**config, is_training=is_training), lambda x: x
