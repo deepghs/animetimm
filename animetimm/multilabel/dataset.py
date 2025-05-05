@@ -71,7 +71,7 @@ def load_tags(repo_id: str) -> TagsInfo:
 
 
 if __name__ == '__main__':
-    rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-1m'
+    rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-full'
     tags_info = load_tags(rid)
 
     mid = "resnet50"
@@ -113,7 +113,14 @@ if __name__ == '__main__':
         return {"pixel_values": pixel_values, "labels": labels}
 
 
-    dataloader = DataLoader(dataset, collate_fn=collate_fn, batch_size=256, num_workers=128)
+    dataloader = DataLoader(
+        dataset,
+        collate_fn=collate_fn,
+        batch_size=256,
+        num_workers=128,
+        shuffle=is_training,
+        drop_last=is_training,
+    )
 
     for x in tqdm(dataloader):
         # print(x)
