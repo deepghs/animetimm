@@ -71,7 +71,7 @@ def load_tags(repo_id: str) -> TagsInfo:
 
 
 if __name__ == '__main__':
-    rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-50k'
+    rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-1m'
     tags_info = load_tags(rid)
 
     mid = "resnet50"
