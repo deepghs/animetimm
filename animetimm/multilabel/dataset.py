@@ -39,7 +39,8 @@ def load_dataset(repo_id: str, split: str = 'train',
     return dataset
 
 
-def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'val'] = 'train'):
+def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'validation'] = 'train',
+                    batch_size: int = 256, num_workers: int = 128):
     from .augmentation import create_transforms
     trans, post_trans = create_transforms(
         timm_model=model,
@@ -68,8 +69,8 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'val'] 
     dataloader = DataLoader(
         dataset,
         collate_fn=collate_fn,
-        batch_size=256,
-        num_workers=128,
+        batch_size=batch_size,
+        num_workers=num_workers,
         shuffle=split == 'train',
         drop_last=split == 'train',
     )
@@ -163,7 +164,7 @@ if __name__ == '__main__':
     dataloader = load_dataloader(
         repo_id=rid,
         model=model,
-        split='train',
+        split='validation',
     )
 
     for x in tqdm(dataloader):
