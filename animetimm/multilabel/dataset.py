@@ -78,7 +78,7 @@ if __name__ == '__main__':
     model = create_model(mid, pretrained=False)
     from .augmentation import create_transforms
 
-    is_training = False
+    is_training = True
 
     trans = create_transforms(
         timm_model=model,
