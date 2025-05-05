@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 
 def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train',
-                 transforms: Optional = None, is_training: bool = False):
+                 transforms: Optional = None):
     dataset = _timm_load_dataset(repo_id, split=split)
 
     def _trans(row):
@@ -33,10 +33,7 @@ def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train',
         row['labels'] = all_labels
         return row
 
-    if is_training:
-        dataset = dataset.with_transform(_trans)
-    else:
-        dataset = dataset.map(_trans)
+    dataset = dataset.with_transform(_trans)
     return dataset
 
 
@@ -96,7 +93,6 @@ if __name__ == '__main__':
         split='train',
         tags_to_id=tags_info.tags_to_id,
         transforms=trans,
-        is_training=is_training,
     )
 
     print(dataset[0])
