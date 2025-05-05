@@ -104,3 +104,8 @@ def create_transforms(timm_model, is_training: bool = False, use_test_size: bool
         return transforms.Compose(transform_list), MixupTransform(mixup_alpha)
     else:
         return _timm_create_transform(**config, is_training=is_training), lambda x: x
+
+
+if __name__ == '__main__':
+    x = sample_beta_distribution(16, 0.2, 0.2)
+    print(x)
