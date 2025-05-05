@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from itertools import chain
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -25,7 +26,7 @@ def load_dataset(repo_id: str, tags_to_id: Dict[str, int], split: str = 'train',
         all_labels = []
         for json_ in row['json']:
             labels = torch.zeros(len(tags_to_id), dtype=torch.float32)
-            for tag in [*json_['rating'], *json_['general_tags'], *json_['character_tags']]:
+            for tag in chain(json_['rating'], json_['general_tags'], json_['character_tags']):
                 labels[tags_to_id[tag]] = 1.0
             all_labels.append(labels)
         row['labels'] = all_labels
