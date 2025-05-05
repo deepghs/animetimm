@@ -109,7 +109,9 @@ if __name__ == '__main__':
         return {"pixel_values": pixel_values, "labels": labels}
 
 
-    dataloader = DataLoader(dataset, collate_fn=collate_fn, batch_size=16)
+    dataloader = DataLoader(dataset, collate_fn=collate_fn, batch_size=256)
 
     for x in tqdm(dataloader):
+        # print(x)
+        # quit()
         pass
