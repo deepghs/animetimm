@@ -211,8 +211,10 @@ def train(
             scheduler.step()
 
         with torch.no_grad():
-            train_loss = accelerator.gather(torch.tensor([train_loss])).sum().detach().cpu().item()
-            train_total = accelerator.gather(torch.tensor([train_total])).sum().detach().cpu().item()
+            train_loss = accelerator.gather(
+                torch.tensor([train_loss], device=accelerator.device)).sum().detach().cpu().item()
+            train_total = accelerator.gather(
+                torch.tensor([train_total], device=accelerator.device)).sum().detach().cpu().item()
             micro_tp = accelerator.gather(micro_tp).sum(dim=0)
             micro_fp = accelerator.gather(micro_fp).sum(dim=0)
             micro_tn = accelerator.gather(micro_tn).sum(dim=0)
@@ -304,8 +306,10 @@ def train(
                     loss = (loss * label_weights).sum()
                     eval_loss += loss.item() * inputs.size(0)
 
-                eval_loss = accelerator.gather(torch.tensor([eval_loss])).sum().detach().cpu().item()
-                eval_total = accelerator.gather(torch.tensor([eval_total])).sum().detach().cpu().item()
+                eval_loss = accelerator.gather(
+                    torch.tensor([eval_loss], device=accelerator.device)).sum().detach().cpu().item()
+                eval_total = accelerator.gather(
+                    torch.tensor([eval_total], device=accelerator.device)).sum().detach().cpu().item()
                 micro_tp = accelerator.gather(micro_tp).sum(dim=0)
                 micro_fp = accelerator.gather(micro_fp).sum(dim=0)
                 micro_tn = accelerator.gather(micro_tn).sum(dim=0)
@@ -365,7 +369,7 @@ if __name__ == '__main__':
     logging.try_init_root(logging.INFO)
     train(
         workdir='runs/tiny_experiments',
-        dataset_repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-50k',
+        dataset_repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-30k',
         timm_model_name='caformer_s36.sail_in22k_ft_in1k_384',
         num_workers=24,
         batch_size=32,
