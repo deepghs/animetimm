@@ -31,8 +31,8 @@ def train(
         weight_decay: float = 1e-3,
         key_metric: str = 'macro_f1',
         seed: Optional[int] = 0,
-        test_epoch: int = 1,
-        test_threshold: float = 0.4,
+        eval_epoch: int = 1,
+        eval_threshold: float = 0.4,
         model_cfg: Optional[dict] = None,
         pretrained_cfg: Optional[dict] = None
 ):
@@ -104,7 +104,7 @@ def train(
         'weight_decay': weight_decay,
         'key_metric': key_metric,
         'processes': accelerator.num_processes,
-        'test_threshold': test_threshold,
+        'eval_threshold': eval_threshold,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -192,8 +192,8 @@ def train(
             train_total += labels_.shape[0]
 
             with torch.no_grad():
-                labels = labels_ > test_threshold
-                preds = torch.sigmoid(outputs) > test_threshold
+                labels = labels_ > eval_threshold
+                preds = torch.sigmoid(outputs) > eval_threshold
                 micro_tp += ((preds == 1) & (labels == 1)).sum().item()
                 micro_fp += ((preds == 1) & (labels == 0)).sum().item()
                 micro_tn += ((preds == 0) & (labels == 0)).sum().item()
@@ -253,7 +253,7 @@ def train(
             session.tb_train_log(
                 global_step=epoch,
                 metrics={
-                    'loss': train_loss / train_total,
+                    'loss': train_loss / train_total / len(tags_info.tags),
                     'micro_mcc': micro_mcc,
                     'micro_f1': micro_f1,
                     'micro_precision': micro_precision,
@@ -267,7 +267,7 @@ def train(
                 }
             )
 
-        if epoch % test_epoch == 0:
+        if epoch % eval_epoch == 0:
             module.eval()
 
             with torch.no_grad():
@@ -291,8 +291,8 @@ def train(
                     outputs = module(inputs)
                     eval_total += labels_.shape[0]
 
-                    labels = labels_ > test_threshold
-                    preds = torch.sigmoid(outputs) > test_threshold
+                    labels = labels_ > eval_threshold
+                    preds = torch.sigmoid(outputs) > eval_threshold
                     micro_tp += ((preds == 1) & (labels == 1)).sum().item()
                     micro_fp += ((preds == 1) & (labels == 0)).sum().item()
                     micro_tn += ((preds == 0) & (labels == 0)).sum().item()
@@ -350,7 +350,7 @@ def train(
                         global_step=epoch,
                         model=model,
                         metrics={
-                            'loss': eval_loss / eval_total,
+                            'loss': eval_loss / eval_total / len(tags_info.tags),
                             'micro_mcc': micro_mcc,
                             'micro_f1': micro_f1,
                             'micro_precision': micro_precision,
