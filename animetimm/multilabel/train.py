@@ -367,6 +367,6 @@ if __name__ == '__main__':
         workdir='runs/tiny_experiments',
         dataset_repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-50k',
         timm_model_name='caformer_s36.sail_in22k_ft_in1k_384',
-        num_workers=128,
+        num_workers=24,
         batch_size=32,
     )
