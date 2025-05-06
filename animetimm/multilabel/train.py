@@ -368,8 +368,8 @@ def train(
 if __name__ == '__main__':
     logging.try_init_root(logging.INFO)
     train(
-        workdir='runs/tiny_experiments_50k',
-        dataset_repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-50k',
+        workdir='runs/tiny_experiments_150k',
+        dataset_repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-150k',
         timm_model_name='caformer_s36.sail_in22k_ft_in1k_384',
         num_workers=32,
         batch_size=64,
