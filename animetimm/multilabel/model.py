@@ -1,0 +1,183 @@
+import json
+import logging
+import os.path
+from dataclasses import dataclass
+from typing import List, Optional, Dict, Any, Union, Tuple
+
+import pandas as pd
+from PIL import Image
+from hbutils.system import TemporaryDirectory
+from hfutils.archive import archive_pack, archive_unpack
+from hfutils.utils import hf_normpath
+from imgutils.data import load_image
+from safetensors import safe_open
+from safetensors.torch import save_model, load_model
+from timm import create_model as _timm_create_model
+from torch import nn
+
+
+@dataclass
+class Model:
+    module: nn.Module
+    model_name: str
+    tags: List[str]
+    model_cfg: dict
+    pretrained_cfg: dict
+
+    @classmethod
+    def new(cls, model_name: str, tags: List[str], pretrained: bool = True,
+            model_cfg: Optional[dict] = None, pretrained_cfg: Optional[dict] = None):
+        model_cfg = dict(model_cfg or {})
+        pretrained_cfg = dict(pretrained_cfg or {})
+        pmodel = _timm_create_model(model_name=model_name, pretrained=False, **model_cfg)
+        if pretrained:
+            model = _timm_create_model(model_name=model_name, pretrained=pretrained, **model_cfg)
+        else:
+            model = pmodel
+        model.reset_classifier(len(tags))
+        model.pretrained_cfg.update(pretrained_cfg)
+
+        return cls(
+            module=model,
+            model_name=model_name,
+            tags=tags,
+            model_cfg=model_cfg,
+            pretrained_cfg=pretrained_cfg,
+        )
+
+    def save(self, safetensors_file: str, extra_metadata: Dict[str, Any] = None):
+        save_model(
+            model=self.module,
+            filename=safetensors_file,
+            metadata={
+                **{
+                    key: json.dumps(value)
+                    for key, value in (extra_metadata or {}).items()
+                },
+                'model_name': self.model_name,
+                'tags': json.dumps(self.tags),
+                'model_cfg': json.dumps(self.model_cfg),
+                'pretrained_cfg': json.dumps(self.pretrained_cfg),
+            }
+        )
+
+    @classmethod
+    def load(cls, safetensors_file: str, device: Union[str, int] = 'cpu', with_metadata: bool = False) \
+            -> Union['Model', Tuple['Model', dict]]:
+        with safe_open(safetensors_file, 'pt') as f:
+            metadata = f.metadata()
+
+        model_name = metadata.pop('model_name')
+        tags = json.loads(metadata.pop('tags'))
+        model_cfg = json.loads(metadata.pop('model_cfg'))
+        pretrained_cfg = json.loads(metadata.pop('pretrained_cfg'))
+        metadata = {key: json.loads(value) for key, value in metadata.items()}
+        model = cls.new(
+            model_name=model_name,
+            tags=tags,
+            model_cfg=model_cfg,
+            pretrained_cfg=pretrained_cfg,
+            pretrained=False,
+        )
+        load_model(
+            model=model.module,
+            filename=safetensors_file,
+            device=device,
+        )
+
+        if with_metadata:
+            return model, metadata
+        else:
+            return model
+
+    def save_as_zip(self, zip_file: str, extra_metadata: Dict[str, Any] = None,
+                    train_metadata: Dict[str, Any] = None):
+        train_metadata = dict(train_metadata or {})
+
+        with TemporaryDirectory() as td:
+            save_datas = {}
+            for key, value in train_metadata.values():
+                segs = key.split('/')
+                if isinstance(value, (Image.Image, pd.DataFrame)):
+                    save_datas[key] = value
+                else:
+                    pkey = '/'.join(segs[:-1])
+                    save_datas[pkey] = {}
+                    save_datas[pkey][segs[-1]] = value
+
+            model_file = os.path.join(td, 'model.safetensors')
+            self.save(
+                safetensors_file=model_file,
+                extra_metadata=extra_metadata,
+            )
+
+            for key, value in save_datas:
+                if isinstance(value, dict):
+                    dst_file = os.path.join(td, f'{key}.json')
+                    os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+                    with open(dst_file, 'w') as f:
+                        json.dump(value, f, sort_keys=True, ensure_ascii=False)
+                elif isinstance(value, Image.Image):
+                    dst_file = os.path.join(td, f'{key}.png')
+                    os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+                    value.save(dst_file)
+                elif isinstance(value, pd.DataFrame):
+                    dst_file = os.path.join(td, f'{key}.csv')
+                    os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+                    value.to_csv(dst_file, index=False)
+                else:
+                    raise TypeError(f'Unknown value in {key!r} - {value!r}.')
+
+            archive_pack(
+                type_name='zip',
+                directory=td,
+                archive_file=zip_file,
+                silent=True,
+            )
+
+    @classmethod
+    def load_from_zip(cls, zip_file: str, device: Union[str, int] = 'cpu') \
+            -> Tuple['Model', dict, dict]:
+        with TemporaryDirectory() as td:
+            archive_unpack(
+                archive_file=zip_file,
+                directory=td,
+                silent=True,
+            )
+
+            model_file = os.path.join(td, 'model.safetensors')
+            model, extra_metadata = cls.load(
+                safetensors_file=model_file,
+                device=device,
+                with_metadata=True,
+            )
+
+            train_metadata = {}
+            for root, _, files in os.walk(td):
+                for file in files:
+                    dst_file = os.path.abspath(os.path.join(root, file))
+                    if os.path.samefile(dst_file, model_file):
+                        continue
+
+                    _, ext = os.path.splitext(os.path.basename(dst_file))
+                    if ext == '.json':
+                        key, _ = os.path.splitext(os.path.relpath(dst_file, td))
+                        with open(dst_file, 'r') as f:
+                            inner_data = json.load(f)
+                        for inner_key, inner_value in inner_data.items():
+                            train_metadata[hf_normpath(os.path.join(key, inner_key))] = inner_value
+                    elif ext == '.png':
+                        key, _ = os.path.splitext(os.path.relpath(dst_file, td))
+                        key = hf_normpath(key)
+                        image = load_image(dst_file, mode='RGB', force_background='white')
+                        image = image.load()
+                        train_metadata[key] = image
+                    elif ext == '.csv':
+                        key, _ = os.path.splitext(os.path.relpath(dst_file, td))
+                        key = hf_normpath(key)
+                        df = pd.read_csv(dst_file)
+                        train_metadata[key] = df
+                    else:
+                        logging.warning(f'Unknown file in zip pack {zip_file!r} - {os.path.relpath(dst_file, td)!r}.')
+
+            return model, extra_metadata, train_metadata

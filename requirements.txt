@@ -12,3 +12,5 @@ hbutils
 datasets>=3.5.0
 pandas
 tqdm
+safetensors
+tensorboard
