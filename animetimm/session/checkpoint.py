@@ -34,10 +34,12 @@ class CheckpointLogger(BaseLogger):
         _, meta, metrics = Model.load_from_zip(zip_file)
         return meta, metrics
 
-    def _save_zip_ckpt(self, ckpt_file: str, global_step, model: Model,
+    def _save_zip_ckpt(self, zip_file: str, global_step, model: Model,
                        metrics: Mapping[str, Union[float, Image.Image]]):
+        if os.path.dirname(zip_file):
+            os.makedirs(os.path.dirname(zip_file), exist_ok=True)
         model.save_as_zip(
-            zip_file=ckpt_file,
+            zip_file=zip_file,
             extra_metadata={
                 **self.__GLOBAL_METADATA__,
                 **self.extra_metadata,
@@ -82,7 +84,7 @@ class CheckpointLogger(BaseLogger):
 
     def _save_last(self, global_step, model: Model, metrics: Mapping[str, Union[float, Image.Image]]):
         self._save_zip_ckpt(
-            ckpt_file=self._last_zip_ckpt,
+            zip_file=self._last_zip_ckpt,
             global_step=global_step,
             model=model,
             metrics=metrics,
@@ -108,13 +110,13 @@ class CheckpointLogger(BaseLogger):
     def _save_best(self, global_step, model: Model, metrics: Mapping[str, Union[float, Image.Image]]):
         if self._best_metric_value is None or metrics[self.key_metric] > self._best_metric_value:
             self._save_zip_ckpt(
-                ckpt_file=self._best_zip_ckpt,
+                zip_file=self._best_zip_ckpt,
                 global_step=global_step,
                 model=model,
                 metrics=metrics,
             )
             self._save_zip_ckpt(
-                ckpt_file=self._step_zip_ckpt(global_step),
+                zip_file=self._step_zip_ckpt(global_step),
                 global_step=global_step,
                 model=model,
                 metrics=metrics,
