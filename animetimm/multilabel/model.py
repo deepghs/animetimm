@@ -5,11 +5,13 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict, Any, Union, Tuple
 
 import pandas as pd
+import torch
 from PIL import Image
 from hbutils.system import TemporaryDirectory
 from hfutils.archive import archive_pack, archive_unpack
 from hfutils.utils import hf_normpath
 from imgutils.data import load_image
+from imgutils.resource import random_bg_image
 from safetensors import safe_open
 from safetensors.torch import save_model, load_model
 from timm import create_model as _timm_create_model
@@ -96,13 +98,14 @@ class Model:
 
         with TemporaryDirectory() as td:
             save_datas = {}
-            for key, value in train_metadata.values():
+            for key, value in train_metadata.items():
                 segs = key.split('/')
                 if isinstance(value, (Image.Image, pd.DataFrame)):
                     save_datas[key] = value
                 else:
                     pkey = '/'.join(segs[:-1])
-                    save_datas[pkey] = {}
+                    if pkey not in save_datas:
+                        save_datas[pkey] = {}
                     save_datas[pkey][segs[-1]] = value
 
             model_file = os.path.join(td, 'model.safetensors')
@@ -111,7 +114,7 @@ class Model:
                 extra_metadata=extra_metadata,
             )
 
-            for key, value in save_datas:
+            for key, value in save_datas.items():
                 if isinstance(value, dict):
                     dst_file = os.path.join(td, f'{key}.json')
                     os.makedirs(os.path.dirname(dst_file), exist_ok=True)
@@ -170,7 +173,7 @@ class Model:
                         key, _ = os.path.splitext(os.path.relpath(dst_file, td))
                         key = hf_normpath(key)
                         image = load_image(dst_file, mode='RGB', force_background='white')
-                        image = image.load()
+                        image.load()
                         train_metadata[key] = image
                     elif ext == '.csv':
                         key, _ = os.path.splitext(os.path.relpath(dst_file, td))
@@ -181,3 +184,60 @@ class Model:
                         logging.warning(f'Unknown file in zip pack {zip_file!r} - {os.path.relpath(dst_file, td)!r}.')
 
             return model, extra_metadata, train_metadata
+
+
+if __name__ == '__main__':
+    m = Model.new(
+        model_name='resnet50',
+        tags=['a', 'b', 'c']
+    )
+    print(m)
+
+    dummy_input = torch.randn(1, 3, 224, 224)
+    with torch.no_grad():
+        dummy_output = m.module(dummy_input)
+        print(dummy_output.shape)
+
+    m.save('test_safetensors.safetensors', extra_metadata={'train_step': 100})
+
+    mx, mt = Model.load('test_safetensors.safetensors', with_metadata=True)
+    print(mt)
+
+    with torch.no_grad():
+        dummy_output2 = mx.module(dummy_input)
+        print(dummy_output2.shape)
+
+    torch.testing.assert_close(dummy_output, dummy_output2)
+    assert mt == {'train_step': 100}
+
+    df_tags = pd.DataFrame([
+        {'tag': '1', 'count': 100},
+        {'tag': 'a', 'count': 101},
+        {'tag': 'f', 'count': 102},
+        {'tag': '4', 'count': 103},
+        {'tag': 'l', 'count': 104},
+    ])
+
+    m.save_as_zip(
+        'test_safetensors.zip',
+        extra_metadata={'train_step': 100},
+        train_metadata={
+            'train/step': 100,
+            'train/loss': 1.14514e-2,
+            'eval/loss': 1.919810e-2,
+            'eval/acc': 0.95,
+            'eval/cm': random_bg_image(),
+            'eval/tags': df_tags,
+        }
+    )
+
+    mx, mt, tt = Model.load_from_zip(
+        'test_safetensors.zip',
+    )
+    with torch.no_grad():
+        dummy_output3 = mx.module(dummy_input)
+        print(dummy_output3.shape)
+
+    torch.testing.assert_close(dummy_output, dummy_output3)
+    assert mt == {'train_step': 100}
+    print(tt)
