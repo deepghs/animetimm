@@ -27,7 +27,7 @@ def train(
         num_workers: int = 8,
         max_epochs: int = 100,
         batch_size: int = 16,
-        learning_rate: float = 0.001,
+        learning_rate: float = 1e-4,
         weight_decay: float = 1e-3,
         key_metric: str = 'macro_f1',
         seed: Optional[int] = 0,
