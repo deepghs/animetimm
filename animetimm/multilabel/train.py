@@ -70,7 +70,7 @@ def train(
     if os.path.exists(last_ckpt_zip_file):
         if accelerator.is_main_process:
             logging.info(f'Loading last checkpoint from {last_ckpt_zip_file!r} ...')
-        model, meta, metrics = Model.load_from_zip(last_ckpt_zip_file, device=accelerator.device)
+        model, meta, metrics = Model.load_from_zip(last_ckpt_zip_file)
         if model.model_name != timm_model_name:
             raise RuntimeError(f'Model name not match with the previous checkpoint '
                                f'({timm_model_name!r} vs {model.model_name}), '
