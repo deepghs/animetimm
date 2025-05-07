@@ -135,12 +135,12 @@ def load_pretrained_tag(repo_id: str) -> str:
     if hf_client.file_exists(
             repo_id=repo_id,
             repo_type='dataset',
-            filename='meta.json',
+            filename='pretrained_tag.json',
     ):
         with open(hf_client.hf_hub_download(
                 repo_id=repo_id,
                 repo_type='dataset',
-                filename='meta.json',
+                filename='pretrained_tag.json',
         ), 'r') as f:
             meta = json.load(f)
 
