@@ -17,7 +17,7 @@ from tqdm import tqdm
 from animetimm.model import Model
 from animetimm.multilabel.metrics import mcc, f1score, precision, recall
 from animetimm.session import TrainSession
-from .dataset import load_tags, load_dataloader
+from .dataset import load_tags, load_dataloader, load_pretrained_tag
 
 
 def train(
@@ -103,6 +103,9 @@ def train(
         previous_epoch = 0
 
     model: Model
+    pretrained_tag = load_pretrained_tag(dataset_repo_id)
+    logging.info(f'Pretrained tag {pretrained_tag!r} found for dataset {dataset_repo_id!r}.')
+    model.pretrained_tag = pretrained_tag
     previous_epoch: int
     train_cfg = {
         'batch_size': batch_size,
