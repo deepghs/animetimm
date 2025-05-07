@@ -28,6 +28,7 @@ class WandbLogger(BaseLogger):
                     name=name,
                     dir=workdir,
                     config=dict(hyperparams or {}),
+                    settings=wandb.Settings(console='off'),
                 )
                 self.active = True
                 logging.info("WandbLogger activated successfully.")
