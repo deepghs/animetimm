@@ -403,8 +403,9 @@ def train(
 if __name__ == '__main__':
     logging.try_init_root(logging.INFO)
     set_name = str(os.environ.get('S', '150k') or '150k')
+    max_epoch = int(os.environ.get('MEP', '100') or '100')
     train(
-        workdir=f'runs/tiny_experiments_{set_name}_p512x_d0.4',
+        workdir=f'runs/tiny_experiments_{set_name}_p512x_d0.4_500',
         dataset_repo_id=f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}',
         timm_model_name='caformer_s36.sail_in22k_ft_in1k_384',
         num_workers=32,
@@ -417,5 +418,6 @@ if __name__ == '__main__':
         rotation_ratio=0.0,
         model_cfg=dict(
             drop_path_rate=0.4,
-        )
+        ),
+        max_epochs=max_epoch,
     )
