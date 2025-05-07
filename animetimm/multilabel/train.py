@@ -35,11 +35,11 @@ def train(
         eval_threshold: float = 0.4,
         model_cfg: Optional[dict] = None,
         pretrained_cfg: Optional[dict] = None,
-        noise_level: int = 1,
+        noise_level: int = 2,
         rotation_ratio: float = 0.0,
         mixup_alpha: float = 0.6,
-        cutout_max_pct: float = 0.25,
-        cutout_patches: int = 1,
+        cutout_max_pct: float = 0.0,
+        cutout_patches: int = 0,
         random_resize_method: bool = True,
         pre_align: bool = True,
         align_size: int = 512
@@ -155,6 +155,8 @@ def train(
         split='validation',
         batch_size=batch_size,
         num_workers=num_workers,
+        pre_align=pre_align,
+        align_size=align_size,
     )
 
     loss_fn = BCEWithLogitsLoss(reduction='none')
@@ -399,4 +401,8 @@ if __name__ == '__main__':
         num_workers=32,
         batch_size=64,
         learning_rate=2e-4,
+        noise_level=2,
+        mixup_alpha=0.6,
+        cutout_patches=0,
+        cutout_max_pct=0.0,
     )

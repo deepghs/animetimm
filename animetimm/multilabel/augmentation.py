@@ -111,12 +111,12 @@ def create_transforms(timm_model, is_training: bool = False, use_test_size: bool
             transform_list.append(transforms.Resize(image_size))
 
         transform_list.append(transforms.ToTensor())
-        if noise_level >= 2 and cutout_max_pct > 0:
+        if noise_level >= 2 and cutout_max_pct > 0 and cutout_patches > 0:
             transform_list.append(Cutout(max_pct=cutout_max_pct, patches=cutout_patches))
         transform_list.append(transforms.Normalize(mean=config['mean'], std=config['std']))
 
         trans = transforms.Compose(transform_list)
-        post_trans = (MixupTransform(mixup_alpha) if mixup_alpha > 0 else NothingChange())
+        post_trans = (MixupTransform(mixup_alpha) if mixup_alpha > 0 and noise_level >= 2 else NothingChange())
     else:
         trans, post_trans = _timm_create_transform(**config, is_training=is_training), NothingChange()
 
