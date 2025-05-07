@@ -51,10 +51,10 @@ class WandbLogger(BaseLogger):
                 pass
 
         if wandb_dict:
-            logging.info(f'Writing to wandb: {wandb_dict!r}')
+            # logging.info(f'Writing to wandb: {wandb_dict!r}')
             self.wandb_run.log(wandb_dict, step=global_step)
-        else:
-            logging.warning('Nothing to write to wandb.')
+        # else:
+        #     logging.warning('Nothing to write to wandb.')
 
     def tb_train_log(self, global_step, metrics: Mapping[str, Union[float, Image.Image]]):
         self.tb_log(
