@@ -405,4 +405,5 @@ if __name__ == '__main__':
         mixup_alpha=0.6,
         cutout_patches=0,
         cutout_max_pct=0.0,
+        rotation_ratio=0.0,
     )

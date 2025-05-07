@@ -137,9 +137,11 @@ if __name__ == '__main__':
     x, p = create_transforms(
         model,
         is_training=True,
-        noise_level=1,
-        rotation_ratio=0.0,
+        noise_level=2,
         mixup_alpha=0.6,
+        cutout_patches=0,
+        cutout_max_pct=0.0,
+        rotation_ratio=0.0,
     )
     print(x)
     print(p)
