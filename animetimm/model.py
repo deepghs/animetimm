@@ -70,7 +70,6 @@ class Model:
         model_cfg = json.loads(metadata.pop('model_cfg'))
         pretrained_cfg = json.loads(metadata.pop('pretrained_cfg'))
         metadata = {key: json.loads(value) for key, value in metadata.items()}
-        print(model_name, tags, model_cfg, pretrained_cfg, metadata)
         model = cls.new(
             model_name=model_name,
             tags=tags,
@@ -189,6 +188,7 @@ if __name__ == '__main__':
         tags=['a', 'b', 'c'],
         model_cfg=dict(drop_path_rate=0.4),
     )
+    m.module.eval()
     print(m)
 
     dummy_input = torch.randn(1, 3, 224, 224)
@@ -200,6 +200,7 @@ if __name__ == '__main__':
     m.save('test_safetensors.safetensors', extra_metadata={'train_step': 100})
 
     mx, mt = Model.load('test_safetensors.safetensors', with_metadata=True)
+    mx.module.eval()
     print(mt)
 
     with torch.no_grad():
@@ -234,6 +235,7 @@ if __name__ == '__main__':
     mx, mt, tt = Model.load_from_zip(
         'test_safetensors.zip',
     )
+    mx.module.eval()
     with torch.no_grad():
         dummy_output3 = mx.module(dummy_input)
         print(dummy_output3.shape)
