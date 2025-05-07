@@ -103,7 +103,6 @@ def create_transforms(timm_model, is_training: bool = False, use_test_size: bool
                 transform_list.append(transforms.RandomRotation(
                     degrees=rotation_ratio * 180,
                     interpolation=InterpolationMode.BILINEAR,
-                    fill=255,
                 ))
 
         if random_resize_method:
@@ -138,6 +137,9 @@ if __name__ == '__main__':
     x, p = create_transforms(
         model,
         is_training=True,
+        noise_level=1,
+        rotation_ratio=0.0,
+        mixup_alpha=0.6,
     )
     print(x)
     print(p)

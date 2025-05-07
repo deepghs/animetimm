@@ -34,7 +34,15 @@ def train(
         eval_epoch: int = 1,
         eval_threshold: float = 0.4,
         model_cfg: Optional[dict] = None,
-        pretrained_cfg: Optional[dict] = None
+        pretrained_cfg: Optional[dict] = None,
+        noise_level: int = 1,
+        rotation_ratio: float = 0.0,
+        mixup_alpha: float = 0.6,
+        cutout_max_pct: float = 0.25,
+        cutout_patches: int = 1,
+        random_resize_method: bool = True,
+        pre_align: bool = True,
+        align_size: int = 512
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -105,6 +113,14 @@ def train(
         'key_metric': key_metric,
         'processes': accelerator.num_processes,
         'eval_threshold': eval_threshold,
+        'noise_level': noise_level,
+        'rotation_ratio': rotation_ratio,
+        'mixup_alpha': mixup_alpha,
+        'cutout_max_pct': cutout_max_pct,
+        'cutout_patches': cutout_patches,
+        'random_resize_method': random_resize_method,
+        'pre_align': pre_align,
+        'align_size': align_size,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -124,6 +140,14 @@ def train(
         split='train',
         batch_size=batch_size,
         num_workers=num_workers,
+        noise_level=noise_level,
+        rotation_ratio=rotation_ratio,
+        mixup_alpha=mixup_alpha,
+        cutout_max_pct=cutout_max_pct,
+        cutout_patches=cutout_patches,
+        random_resize_method=random_resize_method,
+        pre_align=pre_align,
+        align_size=align_size,
     )
     eval_dataloader = load_dataloader(
         repo_id=dataset_repo_id,
