@@ -10,11 +10,13 @@ from PIL import Image
 from hbutils.system import TemporaryDirectory
 from hfutils.archive import archive_pack, archive_unpack
 from hfutils.utils import hf_normpath
+from huggingface_hub import hf_hub_download
 from imgutils.data import load_image
 from imgutils.resource import random_bg_image
 from safetensors import safe_open
 from safetensors.torch import save_model, load_model
 from timm import create_model as _timm_create_model
+from timm.models import parse_model_name, split_model_name_tag
 from torch import nn
 
 
@@ -25,6 +27,38 @@ class Model:
     tags: List[str]
     model_cfg: dict
     pretrained_cfg: dict
+
+    @property
+    def src_repo_id(self) -> str:
+        model_source, model_name = parse_model_name(self.model_name)
+        if model_source == 'hf-hub':
+            return model_name
+        else:
+            return f'timm/{model_name}'
+
+    @property
+    def architecture(self) -> str:
+        model_source, model_name = parse_model_name(self.model_name)
+        if model_source == 'hf-hub':
+            with open(hf_hub_download(repo_id=self.src_repo_id, repo_type='model', filename='config.json'), 'r') as f:
+                meta = json.load(f)
+                return meta['architecture']
+        else:
+            model_name, pretrained_tag = split_model_name_tag(model_name)
+            return model_name
+
+    @property
+    def pretrained_tag(self) -> Optional[str]:
+        if self.pretrained_cfg and 'tag' in self.pretrained_cfg:
+            return self.pretrained_cfg['tag']
+        elif self.module.pretrained_cfg and 'tag' in self.module.pretrained_cfg:
+            return self.module.pretrained_cfg['tag']
+        else:
+            return None
+
+    @pretrained_tag.setter
+    def pretrained_tag(self, new_tag):
+        self.pretrained_cfg['tag'] = new_tag
 
     @classmethod
     def new(cls, model_name: str, tags: List[str], pretrained: bool = True,
@@ -189,7 +223,11 @@ if __name__ == '__main__':
         model_cfg=dict(drop_path_rate=0.4),
     )
     m.module.eval()
-    print(m)
+    # print(m)
+    print(m.pretrained_tag)
+    m.pretrained_tag = 'shit'
+    print(m.pretrained_tag)
+    print(m.module.pretrained_cfg)
 
     dummy_input = torch.randn(1, 3, 224, 224)
     with torch.no_grad():
@@ -201,7 +239,9 @@ if __name__ == '__main__':
 
     mx, mt = Model.load('test_safetensors.safetensors', with_metadata=True)
     mx.module.eval()
-    print(mt)
+    # print(mt)
+    print(mx.pretrained_tag)
+    print(mx.module.pretrained_cfg)
 
     with torch.no_grad():
         dummy_output2 = mx.module(dummy_input)
@@ -236,6 +276,8 @@ if __name__ == '__main__':
         'test_safetensors.zip',
     )
     mx.module.eval()
+    print(mx.pretrained_tag)
+    print(mx.module.pretrained_cfg)
     with torch.no_grad():
         dummy_output3 = mx.module(dummy_input)
         print(dummy_output3.shape)
