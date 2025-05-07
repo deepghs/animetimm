@@ -1,5 +1,5 @@
 import os.path
-from typing import Mapping, Union
+from typing import Mapping, Union, Optional
 
 import numpy as np
 import torch
@@ -12,7 +12,7 @@ from ..model import Model
 
 
 class WandbLogger(BaseLogger):
-    def __init__(self, workdir, project="animetimm", name=None, **kwargs):
+    def __init__(self, workdir, project="animetimm", name=None, hyperparams: Optional[dict] = None, **kwargs):
         BaseLogger.__init__(self, workdir, **kwargs)
         name = name or os.path.basename(workdir)
         self.active = False
@@ -23,7 +23,12 @@ class WandbLogger(BaseLogger):
             self.wandb = wandb
 
             if self.wandb.api.api_key is not None:
-                self.wandb_run = self.wandb.init(project=project, name=name, dir=workdir)
+                self.wandb_run = self.wandb.init(
+                    project=project,
+                    name=name,
+                    dir=workdir,
+                    config=dict(hyperparams or {}),
+                )
                 self.active = True
                 logging.info("WandbLogger activated successfully.")
             else:
@@ -51,10 +56,7 @@ class WandbLogger(BaseLogger):
                 pass
 
         if wandb_dict:
-            # logging.info(f'Writing to wandb: {wandb_dict!r}')
             self.wandb_run.log(wandb_dict, step=global_step)
-        # else:
-        #     logging.warning('Nothing to write to wandb.')
 
     def tb_train_log(self, global_step, metrics: Mapping[str, Union[float, Image.Image]]):
         self.tb_log(

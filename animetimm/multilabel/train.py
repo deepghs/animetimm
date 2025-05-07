@@ -190,7 +190,8 @@ def train(
             workdir, key_metric=key_metric,
             extra_metadata={
                 **{f'train/{key}': value for key, value in train_cfg.items()},
-            }
+            },
+            hyperparams=train_cfg,
         )
         logging.info('Training start!')
 
