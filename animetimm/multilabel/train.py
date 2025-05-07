@@ -369,7 +369,7 @@ if __name__ == '__main__':
     logging.try_init_root(logging.INFO)
     set_name = str(os.environ.get('S', '150k') or '150k')
     train(
-        workdir=f'runs/tiny_experiments_{set_name}',
+        workdir=f'runs/tiny_experiments_{set_name}_p512',
         dataset_repo_id=f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}',
         timm_model_name='caformer_s36.sail_in22k_ft_in1k_384',
         num_workers=32,

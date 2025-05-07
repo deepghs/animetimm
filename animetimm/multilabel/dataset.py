@@ -112,7 +112,7 @@ def load_tags(repo_id: str) -> TagsInfo:
 
 if __name__ == '__main__':
     rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-full'
-    mid = "resnet50"
+    mid = "caformer_s36.sail_in22k_ft_in1k_384"
     model = create_model(mid, pretrained=False)
     dataloader = load_dataloader(
         repo_id=rid,

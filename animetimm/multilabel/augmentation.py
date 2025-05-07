@@ -1,12 +1,14 @@
 import random
 
 import numpy as np
+import timm
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
+from imgutils.preprocess.torchvision import PadToSize
 from timm.data import create_transform as _timm_create_transform
 from timm.data import resolve_data_config
-from torchvision.transforms import functional as F
+from torchvision.transforms import functional as F, InterpolationMode
 
 
 def sample_beta_distribution(size, concentration_0=0.2, concentration_1=0.2):
@@ -74,9 +76,18 @@ class MixupTransform:
         return f"{self.__class__.__name__}(alpha={self.alpha})"
 
 
+class NothingChange:
+    def __call__(self, x):
+        return x
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+
 def create_transforms(timm_model, is_training: bool = False, use_test_size: bool = False,
                       noise_level: int = 2, rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
-                      cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True):
+                      cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
+                      pre_align: bool = True, align_size: int = 512):
     config = resolve_data_config({}, model=timm_model, use_test_size=use_test_size)
     image_size = config['input_size'][-2]
     transform_list = []
@@ -89,7 +100,11 @@ def create_transforms(timm_model, is_training: bool = False, use_test_size: bool
             ])
 
             if rotation_ratio > 0:
-                transform_list.append(transforms.RandomRotation(degrees=rotation_ratio * 180))
+                transform_list.append(transforms.RandomRotation(
+                    degrees=rotation_ratio * 180,
+                    interpolation=InterpolationMode.BILINEAR,
+                    fill=255,
+                ))
 
         if random_resize_method:
             transform_list.append(RandomResizeMethod(image_size))
@@ -101,11 +116,40 @@ def create_transforms(timm_model, is_training: bool = False, use_test_size: bool
             transform_list.append(Cutout(max_pct=cutout_max_pct, patches=cutout_patches))
         transform_list.append(transforms.Normalize(mean=config['mean'], std=config['std']))
 
-        return transforms.Compose(transform_list), MixupTransform(mixup_alpha)
+        trans = transforms.Compose(transform_list)
+        post_trans = (MixupTransform(mixup_alpha) if mixup_alpha > 0 else NothingChange())
     else:
-        return _timm_create_transform(**config, is_training=is_training), lambda x: x
+        trans, post_trans = _timm_create_transform(**config, is_training=is_training), NothingChange()
+
+    if pre_align:
+        trans = transforms.Compose([
+            PadToSize(size=align_size),
+            *trans.transforms,
+        ])
+
+    return trans, post_trans
 
 
 if __name__ == '__main__':
-    x = sample_beta_distribution(16, 0.2, 0.2)
+    model_name = "caformer_s36.sail_in22k_ft_in1k_384"  # 可以替换为任何timm支持的模型
+    model = timm.create_model(model_name, pretrained=True)
+
+    print('Train:')
+    x, p = create_transforms(
+        model,
+        is_training=True,
+    )
     print(x)
+    print(p)
+    print()
+
+    print('Eval:')
+    x, p = create_transforms(
+        model,
+        is_training=False,
+    )
+    print(x)
+    print(p)
+    print()
+
+    # print(list(x))
