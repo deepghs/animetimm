@@ -5,9 +5,10 @@ from PIL import Image
 from .base import BaseLogger
 from .checkpoint import CheckpointLogger
 from .tensorboard import TensorboardLogger
+from .wandb import WandbLogger
 from ..model import Model
 
-_DEFAULT_CLASSES: List[Type[BaseLogger]] = [TensorboardLogger, CheckpointLogger]
+_DEFAULT_CLASSES: List[Type[BaseLogger]] = [TensorboardLogger, CheckpointLogger, WandbLogger]
 
 
 class TrainSession:
