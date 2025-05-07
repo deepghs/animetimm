@@ -23,7 +23,7 @@ class WandbLogger(BaseLogger):
             self.wandb = wandb
 
             if self.wandb.api.api_key is not None:
-                self.wandb_run = self.wandb.init(project=project, name=name, dir=workdir, **kwargs)
+                self.wandb_run = self.wandb.init(project=project, name=name, dir=workdir)
                 self.active = True
                 logging.info("WandbLogger activated successfully.")
             else:
