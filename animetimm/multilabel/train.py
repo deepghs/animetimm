@@ -148,6 +148,7 @@ def train(
         random_resize_method=random_resize_method,
         pre_align=pre_align,
         align_size=align_size,
+        is_main_process=accelerator.is_main_process,
     )
     eval_dataloader = load_dataloader(
         repo_id=dataset_repo_id,
@@ -157,6 +158,7 @@ def train(
         num_workers=num_workers,
         pre_align=pre_align,
         align_size=align_size,
+        is_main_process=accelerator.is_main_process,
     )
 
     loss_fn = BCEWithLogitsLoss(reduction='none')
