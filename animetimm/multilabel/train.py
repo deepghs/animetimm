@@ -126,6 +126,7 @@ def train(
         'align_size': align_size,
         'dataset': dataset_repo_id,
         **model_cfg,
+        'pretrained_tag': pretrained_tag,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
