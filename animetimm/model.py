@@ -31,11 +31,7 @@ class Model:
             model_cfg: Optional[dict] = None, pretrained_cfg: Optional[dict] = None):
         model_cfg = dict(model_cfg or {})
         pretrained_cfg = dict(pretrained_cfg or {})
-        pmodel = _timm_create_model(model_name=model_name, pretrained=False, **model_cfg)
-        if pretrained:
-            model = _timm_create_model(model_name=model_name, pretrained=pretrained, **model_cfg)
-        else:
-            model = pmodel
+        model = _timm_create_model(model_name=model_name, pretrained=pretrained, **model_cfg)
         model.reset_classifier(len(tags))
         model.pretrained_cfg.update(pretrained_cfg)
 
@@ -74,6 +70,7 @@ class Model:
         model_cfg = json.loads(metadata.pop('model_cfg'))
         pretrained_cfg = json.loads(metadata.pop('pretrained_cfg'))
         metadata = {key: json.loads(value) for key, value in metadata.items()}
+        print(model_name, tags, model_cfg, pretrained_cfg, metadata)
         model = cls.new(
             model_name=model_name,
             tags=tags,
@@ -188,14 +185,16 @@ class Model:
 
 if __name__ == '__main__':
     m = Model.new(
-        model_name='resnet50',
-        tags=['a', 'b', 'c']
+        model_name='caformer_s36.sail_in22k_ft_in1k_384',
+        tags=['a', 'b', 'c'],
+        model_cfg=dict(drop_path_rate=0.4),
     )
     print(m)
 
     dummy_input = torch.randn(1, 3, 224, 224)
     with torch.no_grad():
         dummy_output = m.module(dummy_input)
+        print(dummy_output)
         print(dummy_output.shape)
 
     m.save('test_safetensors.safetensors', extra_metadata={'train_step': 100})
@@ -205,6 +204,7 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         dummy_output2 = mx.module(dummy_input)
+        print(dummy_output2)
         print(dummy_output2.shape)
 
     torch.testing.assert_close(dummy_output, dummy_output2)

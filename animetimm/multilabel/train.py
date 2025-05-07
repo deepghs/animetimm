@@ -121,6 +121,8 @@ def train(
         'random_resize_method': random_resize_method,
         'pre_align': pre_align,
         'align_size': align_size,
+        'dataset': dataset_repo_id,
+        **model_cfg,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -409,4 +411,7 @@ if __name__ == '__main__':
         cutout_patches=0,
         cutout_max_pct=0.0,
         rotation_ratio=0.0,
+        model_cfg=dict(
+            drop_path_rate=0.4,
+        )
     )
