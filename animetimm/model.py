@@ -228,6 +228,8 @@ if __name__ == '__main__':
     m.pretrained_tag = 'shit'
     print(m.pretrained_tag)
     print(m.module.pretrained_cfg)
+    print(m.architecture)
+    print(m.src_repo_id)
 
     dummy_input = torch.randn(1, 3, 224, 224)
     with torch.no_grad():
