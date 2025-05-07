@@ -405,7 +405,7 @@ if __name__ == '__main__':
     set_name = str(os.environ.get('S', '150k') or '150k')
     max_epoch = int(os.environ.get('MEP', '100') or '100')
     train(
-        workdir=f'runs/tiny_experiments_{set_name}_p512x_d0.4_500',
+        workdir=f'runs/tiny_experiments_{set_name}_p512x_d0.4_mep{max_epoch}',
         dataset_repo_id=f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}',
         timm_model_name='caformer_s36.sail_in22k_ft_in1k_384',
         num_workers=32,
