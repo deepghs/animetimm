@@ -4,7 +4,6 @@ import numpy as np
 import timm
 import torch
 import torchvision.transforms as transforms
-from PIL import Image
 from imgutils.preprocess.torchvision import PadToSize
 from timm.data import create_transform as _timm_create_transform
 from timm.data import resolve_data_config
@@ -20,7 +19,12 @@ def sample_beta_distribution(size, concentration_0=0.2, concentration_1=0.2):
 class RandomResizeMethod(transforms.Resize):
     def __init__(self, size):
         super().__init__(size)
-        self.methods = [Image.NEAREST, Image.BILINEAR, Image.BICUBIC]
+        self.methods = [
+            InterpolationMode.NEAREST,
+            InterpolationMode.BILINEAR,
+            InterpolationMode.BICUBIC,
+            InterpolationMode.LANCZOS,
+        ]
 
     def forward(self, img):
         method = random.choice(self.methods)
