@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import torch
 from datasets import load_dataset as _timm_load_dataset
+from ditk import logging
 from huggingface_hub import hf_hub_download
 from timm import create_model
 from torch.utils.data import DataLoader
@@ -43,8 +44,7 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
                     batch_size: int = 256, num_workers: int = 128, noise_level: int = 2,
                     rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
                     cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
-                    pre_align: bool = True, align_size: int = 512
-                    ):
+                    pre_align: bool = True, align_size: int = 512, is_main_process: bool = True):
     from .augmentation import create_transforms
     trans, post_trans = create_transforms(
         timm_model=model,
@@ -59,6 +59,12 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
         pre_align=pre_align,
         align_size=align_size,
     )
+    if is_main_process:
+        logging.info(f'Transforms loaded (for {split}):\n{trans}')
+        logging.info(f'Post transforms loaded (for {split}):\n{post_trans}')
+
+    if is_main_process:
+        logging.info(f'Loading dataset from {repo_id!r} (for {split}) ...')
     dataset = load_dataset(
         repo_id=repo_id,
         split=split,

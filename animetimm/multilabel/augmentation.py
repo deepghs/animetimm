@@ -130,6 +130,9 @@ def create_transforms(timm_model, is_training: bool = False, use_test_size: bool
 
 
 if __name__ == '__main__':
+    alpha = 0.6
+    print(sample_beta_distribution(16, alpha, alpha))
+    quit()
     model_name = "caformer_s36.sail_in22k_ft_in1k_384"  # 可以替换为任何timm支持的模型
     model = timm.create_model(model_name, pretrained=True)
 
