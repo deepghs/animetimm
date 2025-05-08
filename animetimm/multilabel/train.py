@@ -423,8 +423,8 @@ if __name__ == '__main__':
         model_args=dict(
             drop_path_rate=0.4,
             img_size=448,
-            act_layer="gelu_tanh",
-            window_size=14,
+            # act_layer="gelu_tanh",
+            # window_size=14,
         ),
         max_epochs=max_epoch,
     )
