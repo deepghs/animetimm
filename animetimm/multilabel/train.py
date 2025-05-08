@@ -407,9 +407,17 @@ if __name__ == '__main__':
     max_epoch = int(os.environ.get('MEP', '100') or '100')
     mn = str(os.environ.get('M', 'caformer_s36.sail_in22k_ft_in1k_384') or 'caformer_s36.sail_in22k_ft_in1k_384')
     rmn = mn.replace('/', '_').replace(':', '_').replace('\\', '_')
+    size = os.environ.get('SIZE')
+    if size:
+        size = int(size)
     batch_size = int(os.environ.get('BS', 64) or 64)
+    model_args = dict(
+        drop_path_rate=0.4,
+    )
+    if size:
+        model_args['img_size'] = size
     train(
-        workdir=f'runs/{rmn}_{set_name}_bs{batch_size}_p512x_d0.4_mep{max_epoch}_s448',
+        workdir=f'runs/{rmn}_{set_name}_bs{batch_size}_p512x_d0.4_mep{max_epoch}_s{size or ""}',
         dataset_repo_id=f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}',
         timm_model_name=mn,
         num_workers=32,
@@ -420,11 +428,6 @@ if __name__ == '__main__':
         cutout_patches=0,
         cutout_max_pct=0.0,
         rotation_ratio=0.0,
-        model_args=dict(
-            drop_path_rate=0.4,
-            img_size=448,
-            # act_layer="gelu_tanh",
-            # window_size=14,
-        ),
+        model_args=model_args,
         max_epochs=max_epoch,
     )
