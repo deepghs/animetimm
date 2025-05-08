@@ -103,7 +103,7 @@ def train(
         previous_epoch = 0
 
     if 'img_size' in model_cfg:
-        img_size = model_cfg
+        img_size = model_cfg['img_size']
 
         if 'input_size' in model.module.pretrained_cfg:
             model.pretrained_cfg['input_size'] = model.module.pretrained_cfg['input_size'] = [
