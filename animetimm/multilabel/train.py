@@ -33,7 +33,7 @@ def train(
         seed: Optional[int] = 0,
         eval_epoch: int = 1,
         eval_threshold: float = 0.4,
-        model_cfg: Optional[dict] = None,
+        model_args: Optional[dict] = None,
         pretrained_cfg: Optional[dict] = None,
         noise_level: int = 2,
         rotation_ratio: float = 0.0,
@@ -65,7 +65,7 @@ def train(
     tags_info = load_tags(repo_id=dataset_repo_id)
     checkpoints = os.path.join(workdir, 'checkpoints')
     last_ckpt_zip_file = os.path.join(checkpoints, 'last.zip')
-    model_cfg = dict(model_cfg or {})
+    model_args = dict(model_args or {})
     pretrained_cfg = dict(pretrained_cfg or {})
     if os.path.exists(last_ckpt_zip_file):
         if accelerator.is_main_process:
@@ -78,9 +78,9 @@ def train(
         if model.tags != tags_info.tags:
             raise RuntimeError(f'Tag list not match with the previous checkpoint, '
                                f'if you insist on opening another training task, please use another workdir.')
-        if model.model_cfg != model_cfg:
+        if model.model_args != model_args:
             raise RuntimeError(f'Model cfgs not match with the previous checkpoint '
-                               f'({model_cfg!r} vs {model.model_cfg}), '
+                               f'({model_args!r} vs {model.model_args}), '
                                f'if you insist on opening another training task, please use another workdir.')
         if model.pretrained_cfg != pretrained_cfg:
             raise RuntimeError(f'Pretrained cfgs not match with the previous checkpoint '
@@ -98,12 +98,12 @@ def train(
             tags=tags_info.tags,
             pretrained=True,
             pretrained_cfg=pretrained_cfg,
-            model_cfg=model_cfg,
+            model_args=model_args,
         )
         previous_epoch = 0
 
-    if 'img_size' in model_cfg:
-        img_size = model_cfg['img_size']
+    if 'img_size' in model_args:
+        img_size = model_args['img_size']
 
         if 'input_size' in model.module.pretrained_cfg:
             model.pretrained_cfg['input_size'] = model.module.pretrained_cfg['input_size'] = [
@@ -144,7 +144,7 @@ def train(
         'pre_align': pre_align,
         'align_size': align_size,
         'dataset': dataset_repo_id,
-        **model_cfg,
+        **model_args,
         'pretrained_tag': pretrained_tag,
     }
     if accelerator.is_main_process:
@@ -153,7 +153,7 @@ def train(
         json.dump({
             'model_name': model.model_name,
             'tags': tags_info.tags,
-            'model_cfg': model.model_cfg,
+            'model_args': model.model_args,
             'pretrained_cfg': model.pretrained_cfg,
             'train': train_cfg,
         }, f, indent=4, ensure_ascii=False, sort_keys=True)
@@ -438,7 +438,7 @@ if __name__ == '__main__':
         cutout_patches=0,
         cutout_max_pct=0.0,
         rotation_ratio=0.0,
-        model_cfg=dict(
+        model_args=dict(
             drop_path_rate=0.4,
             img_size=448,
         ),

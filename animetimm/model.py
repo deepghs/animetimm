@@ -25,7 +25,7 @@ class Model:
     module: nn.Module
     model_name: str
     tags: List[str]
-    model_cfg: dict
+    model_args: dict
     pretrained_cfg: dict
 
     @property
@@ -62,10 +62,10 @@ class Model:
 
     @classmethod
     def new(cls, model_name: str, tags: List[str], pretrained: bool = True,
-            model_cfg: Optional[dict] = None, pretrained_cfg: Optional[dict] = None):
-        model_cfg = dict(model_cfg or {})
+            model_args: Optional[dict] = None, pretrained_cfg: Optional[dict] = None):
+        model_args = dict(model_args or {})
         pretrained_cfg = dict(pretrained_cfg or {})
-        model = _timm_create_model(model_name=model_name, pretrained=pretrained, **model_cfg)
+        model = _timm_create_model(model_name=model_name, pretrained=pretrained, **model_args)
         model.reset_classifier(len(tags))
         model.pretrained_cfg.update(pretrained_cfg)
 
@@ -73,7 +73,7 @@ class Model:
             module=model,
             model_name=model_name,
             tags=tags,
-            model_cfg=model_cfg,
+            model_args=model_args,
             pretrained_cfg=pretrained_cfg,
         )
 
@@ -88,7 +88,7 @@ class Model:
                 },
                 'model_name': self.model_name,
                 'tags': json.dumps(self.tags),
-                'model_cfg': json.dumps(self.model_cfg),
+                'model_args': json.dumps(self.model_args),
                 'pretrained_cfg': json.dumps(self.pretrained_cfg),
             }
         )
@@ -101,13 +101,13 @@ class Model:
 
         model_name = metadata.pop('model_name')
         tags = json.loads(metadata.pop('tags'))
-        model_cfg = json.loads(metadata.pop('model_cfg'))
+        model_args = json.loads(metadata.pop('model_args'))
         pretrained_cfg = json.loads(metadata.pop('pretrained_cfg'))
         metadata = {key: json.loads(value) for key, value in metadata.items()}
         model = cls.new(
             model_name=model_name,
             tags=tags,
-            model_cfg=model_cfg,
+            model_args=model_args,
             pretrained_cfg=pretrained_cfg,
             pretrained=False,
         )
@@ -220,7 +220,7 @@ if __name__ == '__main__':
     m = Model.new(
         model_name='caformer_s36.sail_in22k_ft_in1k_384',
         tags=['a', 'b', 'c'],
-        model_cfg=dict(drop_path_rate=0.4),
+        model_args=dict(drop_path_rate=0.4),
     )
     m.module.eval()
     # print(m)
