@@ -408,7 +408,7 @@ if __name__ == '__main__':
     rmn = mn.replace('/', '_').replace(':', '_').replace('\\', '_')
     batch_size = int(os.environ.get('BS', 64) or 64)
     train(
-        workdir=f'runs/{rmn}_{set_name}_bs{batch_size}_p512x_d0.4_mep{max_epoch}',
+        workdir=f'runs/{rmn}_{set_name}_bs{batch_size}_p512x_d0.4_mep{max_epoch}_s448',
         dataset_repo_id=f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}',
         timm_model_name=mn,
         num_workers=32,
@@ -421,6 +421,7 @@ if __name__ == '__main__':
         rotation_ratio=0.0,
         model_cfg=dict(
             drop_path_rate=0.4,
+            img_size=448,
         ),
         max_epochs=max_epoch,
     )
