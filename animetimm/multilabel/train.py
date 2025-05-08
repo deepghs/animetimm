@@ -278,12 +278,12 @@ def train(
                                                 mean=False).detach().cpu().tolist()
                 macro_recall_lst = recall(macro_tp, macro_fp, macro_tn, macro_fn, mean=False).detach().cpu().tolist()
 
-            df_macro = pd.DataFrame({
+            df_tags_details = pd.DataFrame({
                 **{name: tags_info.df[name] for name in tags_info.df.columns},
-                'macro_mcc': macro_mcc_lst,
-                'macro_f1': macro_f1_lst,
-                'macro_precision': macro_precision_lst,
-                'macro_recall': macro_recall_lst,
+                'mcc': macro_mcc_lst,
+                'f1': macro_f1_lst,
+                'precision': macro_precision_lst,
+                'recall': macro_recall_lst,
             })
             session.tb_train_log(
                 global_step=epoch,
@@ -298,7 +298,7 @@ def train(
                     'macro_precision': macro_precision,
                     'macro_recall': macro_recall,
                     'learning_rate': train_lr,
-                    'macro': df_macro,
+                    'details': df_tags_details,
                 }
             )
 
@@ -374,12 +374,12 @@ def train(
                     macro_recall_lst = recall(macro_tp, macro_fp, macro_tn, macro_fn,
                                               mean=False).detach().cpu().tolist()
 
-                    df_macro = pd.DataFrame({
+                    df_tags_details = pd.DataFrame({
                         **{name: tags_info.df[name] for name in tags_info.df.columns},
-                        'macro_mcc': macro_mcc_lst,
-                        'macro_f1': macro_f1_lst,
-                        'macro_precision': macro_precision_lst,
-                        'macro_recall': macro_recall_lst,
+                        'mcc': macro_mcc_lst,
+                        'f1': macro_f1_lst,
+                        'precision': macro_precision_lst,
+                        'recall': macro_recall_lst,
                     })
                     session.tb_eval_log(
                         global_step=epoch,
@@ -395,7 +395,7 @@ def train(
                             'macro_precision': macro_precision,
                             'macro_recall': macro_recall,
                             'learning_rate': train_lr,
-                            'macro': df_macro,
+                            'details': df_tags_details,
                         }
                     )
 
