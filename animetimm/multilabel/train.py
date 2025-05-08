@@ -66,6 +66,7 @@ def train(
     checkpoints = os.path.join(workdir, 'checkpoints')
     last_ckpt_zip_file = os.path.join(checkpoints, 'last.zip')
     model_args = dict(model_args or {})
+    model_args = {'crop_pct': 1.0, 'test_crop_pct': 1.0, **model_args}
     pretrained_cfg = dict(pretrained_cfg or {})
     if os.path.exists(last_ckpt_zip_file):
         if accelerator.is_main_process:
@@ -101,25 +102,6 @@ def train(
             model_args=model_args,
         )
         previous_epoch = 0
-
-    if 'img_size' in model_args:
-        img_size = model_args['img_size']
-
-        if 'input_size' in model.module.pretrained_cfg:
-            model.pretrained_cfg['input_size'] = model.module.pretrained_cfg['input_size'] = [
-                *model.module.pretrained_cfg['input_size'][:-2],
-                img_size, img_size,
-            ]
-        if 'crop_pct' in model.module.pretrained_cfg:
-            model.pretrained_cfg['crop_pct'] = model.module.pretrained_cfg['crop_pct'] = 1.0
-
-        if 'test_input_size' in model.module.pretrained_cfg:
-            model.pretrained_cfg['test_input_size'] = model.module.pretrained_cfg['test_input_size'] = [
-                *model.module.pretrained_cfg['test_input_size'][:-2],
-                img_size, img_size,
-            ]
-        if 'test_crop_pct' in model.module.pretrained_cfg:
-            model.pretrained_cfg['test_crop_pct'] = model.module.pretrained_cfg['test_crop_pct'] = 1.0
 
     model: Model
     pretrained_tag = load_pretrained_tag(dataset_repo_id)

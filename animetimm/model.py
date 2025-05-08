@@ -16,7 +16,7 @@ from imgutils.resource import random_bg_image
 from safetensors import safe_open
 from safetensors.torch import save_model, load_model
 from timm import create_model as _timm_create_model
-from timm.models import parse_model_name, split_model_name_tag
+from timm.models import parse_model_name, split_model_name_tag, load_model_config_from_hf
 from torch import nn
 
 
@@ -27,6 +27,20 @@ class Model:
     tags: List[str]
     model_args: dict
     pretrained_cfg: dict
+
+    def __post_init__(self):
+        model_source, model_name = parse_model_name(self.model_name)
+        if model_source == 'hf-hub':
+            pretrained_cfg, model_name, model_args = load_model_config_from_hf(model_id=model_name)
+            self.model_args = {**model_args, **self.model_args}
+            self.pretrained_cfg = {**pretrained_cfg, **self.pretrained_cfg}
+
+        if 'img_size' in self.model_args:
+            img_size = self.model_args['img_size']
+            self.pretrained_cfg['input_size'] = [3, img_size, img_size]
+            self.pretrained_cfg['test_input_size'] = [3, img_size, img_size]
+
+        self.module.pretrained_cfg.update(self.pretrained_cfg)
 
     @property
     def src_repo_id(self) -> str:
@@ -218,7 +232,8 @@ class Model:
 
 if __name__ == '__main__':
     m = Model.new(
-        model_name='caformer_s36.sail_in22k_ft_in1k_384',
+        # model_name='caformer_s36.sail_in22k_ft_in1k_384',
+        model_name='hf-hub:SmilingWolf/wd-swinv2-tagger-v3',
         tags=['a', 'b', 'c'],
         model_args=dict(drop_path_rate=0.4),
     )
@@ -230,6 +245,9 @@ if __name__ == '__main__':
     print(m.module.pretrained_cfg)
     print(m.architecture)
     print(m.src_repo_id)
+    print(m.model_args)
+    print(m.pretrained_cfg)
+    quit()
 
     dummy_input = torch.randn(1, 3, 224, 224)
     with torch.no_grad():
