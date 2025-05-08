@@ -104,20 +104,22 @@ def train(
 
     if 'img_size' in model_cfg:
         img_size = model_cfg
-        if 'input_size':
-            model.module.pretrained_cfg['input_size'] = [
+
+        if 'input_size' in model.module.pretrained_cfg:
+            model.pretrained_cfg['input_size'] = model.module.pretrained_cfg['input_size'] = [
                 *model.module.pretrained_cfg['input_size'][:-2],
                 img_size, img_size,
             ]
-        if 'crop_pct':
-            model.module.pretrained_cfg['crop_pct'] = 1.0
-        if 'test_input_size':
-            model.module.pretrained_cfg['test_input_size'] = [
+        if 'crop_pct' in model.module.pretrained_cfg:
+            model.pretrained_cfg['crop_pct'] = model.module.pretrained_cfg['crop_pct'] = 1.0
+
+        if 'test_input_size' in model.module.pretrained_cfg:
+            model.pretrained_cfg['test_input_size'] = model.module.pretrained_cfg['test_input_size'] = [
                 *model.module.pretrained_cfg['test_input_size'][:-2],
                 img_size, img_size,
             ]
-        if 'test_crop_pct':
-            model.module.pretrained_cfg['test_crop_pct'] = 1.0
+        if 'test_crop_pct' in model.module.pretrained_cfg:
+            model.pretrained_cfg['test_crop_pct'] = model.module.pretrained_cfg['test_crop_pct'] = 1.0
 
     model: Model
     pretrained_tag = load_pretrained_tag(dataset_repo_id)
