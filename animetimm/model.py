@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import os.path
@@ -79,7 +80,15 @@ class Model:
             model_args: Optional[dict] = None, pretrained_cfg: Optional[dict] = None):
         model_args = dict(model_args or {})
         pretrained_cfg = dict(pretrained_cfg or {})
-        model = _timm_create_model(model_name=model_name, pretrained=pretrained, **model_args)
+        try:
+            model = _timm_create_model(model_name=model_name, pretrained=pretrained, **model_args)
+        except TypeError:
+            if 'img_size' in model_args:  # for some model dont support img_size (like mobilenet)
+                _model_args = copy.deepcopy(model_args)
+                del _model_args['img_size']
+                model = _timm_create_model(model_name=model_name, pretrained=pretrained, **_model_args)
+            else:
+                raise
         model.reset_classifier(len(tags))
         model.pretrained_cfg.update(pretrained_cfg)
 
