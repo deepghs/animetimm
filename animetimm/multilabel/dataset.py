@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from itertools import chain
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Optional, Literal, Sequence
 
 import numpy as np
 import pandas as pd
@@ -104,12 +104,15 @@ class TagsInfo:
     weights: np.ndarray
 
 
-def load_tags(repo_id: str) -> TagsInfo:
+def load_tags(repo_id: str, categories: Optional[Sequence[int]] = None) -> TagsInfo:
     df_tags = pd.read_parquet(hf_hub_download(
         repo_id=repo_id,
         repo_type='dataset',
         filename='tags.parquet',
     ))
+    if categories:
+        categories = set(categories or [])
+        df_tags = df_tags[df_tags['category'].isin(categories)]
     d_min_counts = {}
     for cate in sorted(set(df_tags['category'])):
         df_cate_tags = df_tags[df_tags['category'] == cate]

@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from typing import Optional
+from typing import Optional, Sequence
 
 import pandas as pd
 import torch
@@ -42,7 +42,8 @@ def train(
         cutout_patches: int = 0,
         random_resize_method: bool = True,
         pre_align: bool = True,
-        align_size: int = 512
+        align_size: int = 512,
+        tag_categories: Optional[Sequence[int]] = None,
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -62,7 +63,8 @@ def train(
 
     os.makedirs(workdir, exist_ok=True)
 
-    tags_info = load_tags(repo_id=dataset_repo_id)
+    tags_info = load_tags(repo_id=dataset_repo_id, categories=tag_categories)
+    tags_info.df.to_csv(os.path.join(workdir, 'tags.csv'), index=False)
     checkpoints = os.path.join(workdir, 'checkpoints')
     last_ckpt_zip_file = os.path.join(checkpoints, 'last.zip')
     model_args = dict(model_args or {})
