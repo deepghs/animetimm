@@ -66,8 +66,9 @@ def train(
     checkpoints = os.path.join(workdir, 'checkpoints')
     last_ckpt_zip_file = os.path.join(checkpoints, 'last.zip')
     model_args = dict(model_args or {})
-    model_args = {'crop_pct': 1.0, 'test_crop_pct': 1.0, **model_args}
+    model_args = {**model_args}
     pretrained_cfg = dict(pretrained_cfg or {})
+    pretrained_cfg = {'crop_pct': 1.0, 'test_crop_pct': 1.0, **pretrained_cfg}
     if os.path.exists(last_ckpt_zip_file):
         if accelerator.is_main_process:
             logging.info(f'Loading last checkpoint from {last_ckpt_zip_file!r} ...')
