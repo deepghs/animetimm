@@ -160,6 +160,7 @@ def train(
         pre_align=pre_align,
         align_size=align_size,
         is_main_process=accelerator.is_main_process,
+        categories=tag_categories,
         seen_tag_keys=seen_tag_keys,
     )
     eval_dataloader = load_dataloader(

@@ -21,9 +21,9 @@ _DEFAULT_KEYS = [
 
 
 def load_dataset(repo_id: str, split: str = 'train', transforms: Optional = None,
-                 seen_tag_keys: Optional[List[str]] = None):
+                 categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None):
     dataset = _timm_load_dataset(repo_id, split=split)
-    tags_info = load_tags(repo_id)
+    tags_info = load_tags(repo_id, categories=categories)
     tags_to_id = tags_info.tags_to_id
 
     def _trans(row):
@@ -53,7 +53,7 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
                     rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
                     cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
                     pre_align: bool = True, align_size: int = 512, is_main_process: bool = True,
-                    seen_tag_keys: Optional[List[str]] = None):
+                    categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None):
     from .augmentation import create_transforms
     trans, post_trans = create_transforms(
         timm_model=model,
@@ -78,6 +78,7 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
         repo_id=repo_id,
         split=split,
         transforms=trans,
+        categories=categories,
         seen_tag_keys=seen_tag_keys,
     )
 
