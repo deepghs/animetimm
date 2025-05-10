@@ -1,6 +1,5 @@
 import json
 from dataclasses import dataclass
-from itertools import chain
 from typing import Dict, List, Optional, Literal, Sequence
 
 import numpy as np
@@ -14,9 +13,15 @@ from timm import create_model
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+_DEFAULT_KEYS = [
+    'rating',
+    'general_tags',
+    'character_tags',
+]
 
-def load_dataset(repo_id: str, split: str = 'train',
-                 transforms: Optional = None):
+
+def load_dataset(repo_id: str, split: str = 'train', transforms: Optional = None,
+                 seen_tag_keys: Optional[List[str]] = None):
     dataset = _timm_load_dataset(repo_id, split=split)
     tags_info = load_tags(repo_id)
     tags_to_id = tags_info.tags_to_id
@@ -32,8 +37,9 @@ def load_dataset(repo_id: str, split: str = 'train',
         all_labels = []
         for json_ in row['json']:
             labels = torch.zeros(len(tags_to_id), dtype=torch.float32)
-            for tag in chain(json_['rating'], json_['general_tags'], json_['character_tags']):
-                labels[tags_to_id[tag]] = 1.0
+            for tag_key in (seen_tag_keys or _DEFAULT_KEYS):
+                for tag in json_[tag_key]:
+                    labels[tags_to_id[tag]] = 1.0
             all_labels.append(labels)
         row['labels'] = all_labels
         return row
@@ -46,7 +52,8 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
                     batch_size: int = 256, num_workers: int = 128, noise_level: int = 2,
                     rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
                     cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
-                    pre_align: bool = True, align_size: int = 512, is_main_process: bool = True):
+                    pre_align: bool = True, align_size: int = 512, is_main_process: bool = True,
+                    seen_tag_keys: Optional[List[str]] = None):
     from .augmentation import create_transforms
     trans, post_trans = create_transforms(
         timm_model=model,
@@ -71,6 +78,7 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
         repo_id=repo_id,
         split=split,
         transforms=trans,
+        seen_tag_keys=seen_tag_keys,
     )
 
     def collate_fn(examples):

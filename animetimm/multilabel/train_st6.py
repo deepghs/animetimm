@@ -33,4 +33,5 @@ if __name__ == '__main__':
         model_args=model_args,
         max_epochs=max_epoch,
         tag_categories=[1],
+        seen_tag_keys=['artist_tags'],
     )

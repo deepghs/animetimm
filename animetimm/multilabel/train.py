@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from typing import Optional, Sequence
+from typing import Optional, Sequence, List
 
 import pandas as pd
 import torch
@@ -44,6 +44,7 @@ def train(
         pre_align: bool = True,
         align_size: int = 512,
         tag_categories: Optional[Sequence[int]] = None,
+        seen_tag_keys: Optional[List[str]] = None,
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -159,6 +160,7 @@ def train(
         pre_align=pre_align,
         align_size=align_size,
         is_main_process=accelerator.is_main_process,
+        seen_tag_keys=seen_tag_keys,
     )
     eval_dataloader = load_dataloader(
         repo_id=dataset_repo_id,
