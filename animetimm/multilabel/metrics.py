@@ -79,8 +79,9 @@ def recall(tp, fp, tn, fn, mean: bool = True):
 
 def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds=100):
     all_sample = all_sample.cpu().numpy()
-    print(all_labels)
+    # print(all_labels)
     all_labels = all_labels.to(torch.int32).to(torch.bool).cpu().numpy()
+    # print(all_labels.to(torch.int))
 
     # Generate candidate thresholds (0 to 1)
     thresholds = np.linspace(1.0 / num_thresholds, 1, num_thresholds)
