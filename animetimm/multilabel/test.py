@@ -122,10 +122,10 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         if accelerator.is_main_process:
             best_thresholds, best_f1, best_precision, best_recall = \
                 compute_optimal_thresholds(all_samples, all_labels, alpha=1.0)
-            best_thresholds = best_thresholds.detach().cpu().numpy()
-            best_f1 = best_f1.detach().cpu().numpy()
-            best_precision = best_precision.detach().cpu().numpy()
-            best_recall = best_recall.detach().cpu().numpy()
+            # best_thresholds = best_thresholds.detach().cpu().numpy()
+            # best_f1 = best_f1.detach().cpu().numpy()
+            # best_precision = best_precision.detach().cpu().numpy()
+            # best_recall = best_recall.detach().cpu().numpy()
 
             micro_mcc = mcc(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
             micro_f1 = f1score(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
