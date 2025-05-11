@@ -109,6 +109,9 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         print('all_samples', all_samples.shape, all_samples.dtype, all_samples.device)
         print('all_labels', all_labels.shape, all_labels.dtype, all_labels.device)
 
+        print((torch.isclose(all_labels, 1.0) | torch.isclose(all_labels, 0.0)).all())
+        quit()
+
         micro_tp = accelerator.gather(micro_tp).sum(dim=0)
         micro_fp = accelerator.gather(micro_fp).sum(dim=0)
         micro_tn = accelerator.gather(micro_tn).sum(dim=0)
