@@ -9,7 +9,7 @@ from ditk import logging
 from tqdm import tqdm
 
 from .dataset import load_tags, load_pretrained_tag, load_dataloader
-from .metrics import mcc, f1score, precision, recall
+from .metrics import mcc, f1score, precision, recall, compute_optimal_thresholds
 from ..model import Model
 
 
@@ -120,6 +120,13 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         macro_fn = accelerator.gather(macro_fn).sum(dim=0)
 
         if accelerator.is_main_process:
+            best_thresholds, best_f1, best_precision, best_recall = \
+                compute_optimal_thresholds(all_samples, all_labels, alpha=1.0)
+            best_thresholds = best_thresholds.detach().cpu().numpy()
+            best_f1 = best_f1.detach().cpu().numpy()
+            best_precision = best_precision.detach().cpu().numpy()
+            best_recall = best_recall.detach().cpu().numpy()
+
             micro_mcc = mcc(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
             micro_f1 = f1score(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
             micro_precision = precision(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
@@ -144,6 +151,10 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
                 'f1': macro_f1_lst,
                 'precision': macro_precision_lst,
                 'recall': macro_recall_lst,
+                'best_f1': best_f1,
+                'best_threshold': best_thresholds,
+                'best_precision': best_precision,
+                'best_recall': best_recall,
             })
             _metrics = {
                 'micro_mcc': micro_mcc,
