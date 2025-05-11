@@ -102,8 +102,8 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             all_samples.append(torch.sigmoid(outputs))
             all_labels.append(labels_)
 
-        all_samples = torch.stack(all_samples)
-        all_labels = torch.stack(all_labels)
+        all_samples = torch.concat(all_samples, dim=0)
+        all_labels = torch.concat(all_labels, dim=0)
         all_samples = accelerator.gather(all_samples)
         all_labels = accelerator.gather(all_labels)
         print('all_samples', all_samples.shape, all_samples.dtype, all_samples.device)
