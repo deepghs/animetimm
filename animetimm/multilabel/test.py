@@ -15,7 +15,11 @@ from ..model import Model
 
 def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_threshold: float = 0.4,
          tag_categories: Optional[Sequence[int]] = None,
-         seen_tag_keys: Optional[List[str]] = None, ):
+         seen_tag_keys: Optional[List[str]] = None, force:bool=False):
+    if os.path.exists(os.path.join(workdir, 'test_tags.csv')) and not force:
+        logging.info(f'Already tested for {workdir}, skipped.')
+        return
+
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
         step_scheduler_with_optimizer=False,
