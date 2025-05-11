@@ -124,7 +124,6 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
         best_f1.append(f1s[ma])
         best_precision.append(pres[ma])
         best_recall.append(recs[ma])
-        # best_thresholds.append(ths[ma])
         best_thresholds.append((ths[ma] + ths[mb]) / 2)
 
     best_f1 = np.array(best_f1)

@@ -125,10 +125,6 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         if accelerator.is_main_process:
             best_thresholds, best_f1, best_precision, best_recall = \
                 compute_optimal_thresholds(all_samples, all_labels, alpha=1.0)
-            # best_thresholds = best_thresholds.detach().cpu().numpy()
-            # best_f1 = best_f1.detach().cpu().numpy()
-            # best_precision = best_precision.detach().cpu().numpy()
-            # best_recall = best_recall.detach().cpu().numpy()
 
             micro_mcc = mcc(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
             micro_f1 = f1score(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
@@ -171,6 +167,10 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             }
             logging.info(f'Metrics: {_metrics!r}')
             logging.info(f'Tag detailed information:\n{df_tags_details}')
+
+            with open(os.path.join(workdir, 'test_metrics.json'), 'w') as f:
+                json.dump(_metrics, f, sort_keys=True, ensure_ascii=False, indent=4)
+            df_tags_details.to_csv(os.path.join(workdir, 'test_tags.csv'), index=False)
 
 
 if __name__ == '__main__':
