@@ -83,12 +83,12 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
     all_labels = all_labels.to(torch.int32).to(torch.bool)
 
     # Generate candidate thresholds (0 to 1)
-    thresholds = torch.linspace(0, 1, steps=num_thresholds, device=device)
+    thresholds = torch.linspace(1.0 / num_thresholds, 1, steps=num_thresholds, device=device)
 
     best_f1, best_precision, best_recall, best_thresholds = [], [], [], []
 
     for idx in tqdm(range(all_sample.shape[-1]), desc='Scan Tags'):
-        sample, labels = all_sample[...:idx], all_labels[...:idx]
+        sample, labels = all_sample[..., idx], all_labels[..., idx]
 
         f1s, pres, recs, ths = [], [], [], []
 
