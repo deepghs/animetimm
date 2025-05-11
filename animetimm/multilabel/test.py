@@ -32,7 +32,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
     if len(tags_info.df) != len(df_expected_tags):
         raise RuntimeError('Tag list length not match, '
                            f'{len(df_expected_tags)!r} expected but {len(tags_info.df)!r} found.')
-    elif tags_info.df['name'] != df_expected_tags['name']:
+    elif list(tags_info.df['name']) != list(df_expected_tags['name']):
         raise RuntimeError('Tag list not match.')
 
     tags_info.df.to_csv(os.path.join(workdir, 'tags.csv'), index=False)
@@ -70,9 +70,6 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
     module.eval()
 
     with torch.no_grad():
-        eval_loss = 0.0
-        eval_total = 0
-
         micro_tp = torch.zeros((1,), device=accelerator.device)
         micro_fp = torch.zeros((1,), device=accelerator.device)
         micro_tn = torch.zeros((1,), device=accelerator.device)
@@ -91,8 +88,6 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             labels_ = labels_
 
             outputs = module(inputs)
-            eval_total += labels_.shape[0]
-
             labels = labels_ > test_threshold
             preds = torch.sigmoid(outputs) > test_threshold
             micro_tp += ((preds == 1) & (labels == 1)).sum().item()
