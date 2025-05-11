@@ -115,17 +115,17 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
         recs = np.array(recs)
         ths = np.array(ths)
 
-        ma = np.argmax(f1s)
-        # mb = ma + 1
-        # while np.isclose(f1s[ma], f1s[mb]) and np.isclose(pres[ma], pres[mb]) \
-        #         and np.isclose(recs[ma], recs[mb]) and mb < f1s.shape[0]:
-        #     mb += 1
-        # mb = mb - 1
+        ma = int(np.argmax(f1s).item())
+        mb = int(ma) + 1
+        while np.isclose(f1s[ma], f1s[mb]) and np.isclose(pres[ma], pres[mb]) \
+                and np.isclose(recs[ma], recs[mb]) and mb < f1s.shape[0]:
+            mb += 1
+        mb = mb - 1
         best_f1.append(f1s[ma])
         best_precision.append(pres[ma])
         best_recall.append(recs[ma])
-        best_thresholds.append(ths[ma])
-        # best_thresholds.append((ths[ma] + ths[mb]) / 2)
+        # best_thresholds.append(ths[ma])
+        best_thresholds.append((ths[ma] + ths[mb]) / 2)
 
     best_f1 = np.array(best_f1)
     best_precision = np.array(best_precision)
