@@ -1,4 +1,6 @@
+import numpy as np
 import torch
+from tqdm import tqdm
 
 
 def mcc(tp, fp, tn, fn, mean: bool = True):
@@ -75,75 +77,52 @@ def recall(tp, fp, tn, fn, mean: bool = True):
     return v
 
 
-def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds=100, batch_size=100000):
-    """
-    Calculate optimal thresholds for multi-label classification maximizing F-beta score
-
-    Args:
-    - all_sample: Model output probabilities, shape [num_samples, num_tags], torch.float32
-    - all_labels: Ground truth labels, shape [num_samples, num_tags], torch.float32 (0.0 or 1.0)
-    - alpha: Beta parameter for F-beta score calculation
-    - num_thresholds: Number of candidate thresholds (default: 100)
-    - batch_size: Number of samples per processing batch (adjust based on memory)
-
-    Returns:
-    - best_thresholds: Optimal thresholds per tag, shape [num_tags]
-    - best_f1: Best F-beta scores, shape [num_tags]
-    - best_precision: Precision values at optimal thresholds, shape [num_tags]
-    - best_recall: Recall values at optimal thresholds, shape [num_tags]
-    """
+def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds=100):
     device = all_sample.device
     num_samples, num_tags = all_sample.shape
-
-    # Precompute total positive samples per tag
-    sum_labels = all_labels.sum(dim=0)  # [num_tags]
+    all_labels = all_labels.to(torch.int32).to(torch.bool)
 
     # Generate candidate thresholds (0 to 1)
     thresholds = torch.linspace(0, 1, steps=num_thresholds, device=device)
 
-    # Initialize storage for best metrics
-    best_f1 = torch.zeros(num_tags, device=device)
-    best_precision = torch.zeros_like(best_f1)
-    best_recall = torch.zeros_like(best_f1)
-    best_thresholds = torch.zeros_like(best_f1)
+    best_f1, best_precision, best_recall, best_thresholds = [], [], [], []
 
-    # Process each candidate threshold
-    for t in thresholds:
-        # Initialize counters for current threshold
-        tp_total = torch.zeros(num_tags, device=device)
-        fp_total = torch.zeros(num_tags, device=device)
+    for idx in tqdm(range(all_sample.shape[-1]), desc='Scan Tags'):
+        sample, labels = all_sample[...:idx], all_labels[...:idx]
 
-        # Process samples in batches
-        for i in range(0, num_samples, batch_size):
-            batch_slice = slice(i, min(i + batch_size, num_samples))
-            sample_batch = all_sample[batch_slice]  # [batch_size, num_tags]
-            label_batch = all_labels[batch_slice]  # [batch_size, num_tags]
+        f1s, pres, recs, ths = [], [], [], []
 
-            # Calculate TP and FP for current batch
-            pred_mask = sample_batch >= t
-            tp_batch = (pred_mask & label_batch.bool()).sum(dim=0).float()
-            fp_batch = (pred_mask & ~label_batch.bool()).sum(dim=0).float()
+        for th in thresholds:
+            ppos = sample >= th
+            tp = (ppos & labels).sum()
+            fp = (ppos & ~labels).sum()
+            fn = (~ppos & labels).sum()
 
-            # Accumulate batch results
-            tp_total += tp_batch
-            fp_total += fp_batch
+            precision = tp / (tp + fp + 1e-12)
+            recall = tp / (tp + fn + 1e-12)
+            beta_sq = alpha ** 2
+            f1_numerator = (1 + beta_sq) * precision * recall
+            f1_denominator = beta_sq * precision + recall + 1e-12
+            f1 = f1_numerator / f1_denominator
+            f1s.append(f1)
+            pres.append(precision)
+            recs.append(recall)
+            ths.append(th)
 
-        # Calculate derived metrics
-        fn_total = sum_labels - tp_total
-        precision = tp_total / (tp_total + fp_total + 1e-12)  # Add epsilon to avoid division by zero
-        recall = tp_total / (tp_total + fn_total + 1e-12)
+        f1s = torch.tensor(f1s, dtype=device)
+        pres = torch.tensor(pres, dtype=device)
+        recs = torch.tensor(recs, dtype=device)
+        ths = torch.tensor(ths, dtype=device)
 
-        # Calculate F-beta score (beta = alpha)
-        beta_sq = alpha ** 2
-        f1_numerator = (1 + beta_sq) * precision * recall
-        f1_denominator = beta_sq * precision + recall + 1e-12
-        f1 = f1_numerator / f1_denominator
+        ma = np.argmax(f1s)
+        best_f1.append(f1s[ma])
+        best_precision.append(pres[ma])
+        best_recall.append(recs[ma])
+        best_thresholds.append(ths[ma])
 
-        # Update best metrics where F1 improves
-        better_mask = f1 > best_f1
-        best_f1[better_mask] = f1[better_mask]
-        best_precision[better_mask] = precision[better_mask]
-        best_recall[better_mask] = recall[better_mask]
-        best_thresholds[better_mask] = t
+    best_f1 = torch.tensor(best_f1, dtype=device)
+    best_precision = torch.tensor(best_precision, dtype=device)
+    best_recall = torch.tensor(best_recall, dtype=device)
+    best_thresholds = torch.tensor(best_thresholds, dtype=device)
 
     return best_thresholds, best_f1, best_precision, best_recall
