@@ -109,10 +109,10 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
             recs.append(recall)
             ths.append(th)
 
-        f1s = torch.tensor(f1s, dtype=device)
-        pres = torch.tensor(pres, dtype=device)
-        recs = torch.tensor(recs, dtype=device)
-        ths = torch.tensor(ths, dtype=device)
+        f1s = torch.tensor(f1s, device=device)
+        pres = torch.tensor(pres, device=device)
+        recs = torch.tensor(recs, device=device)
+        ths = torch.tensor(ths, device=device)
 
         ma = np.argmax(f1s)
         best_f1.append(f1s[ma])
@@ -120,9 +120,9 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
         best_recall.append(recs[ma])
         best_thresholds.append(ths[ma])
 
-    best_f1 = torch.tensor(best_f1, dtype=device)
-    best_precision = torch.tensor(best_precision, dtype=device)
-    best_recall = torch.tensor(best_recall, dtype=device)
-    best_thresholds = torch.tensor(best_thresholds, dtype=device)
+    best_f1 = torch.tensor(best_f1, device=device)
+    best_precision = torch.tensor(best_precision, device=device)
+    best_recall = torch.tensor(best_recall, device=device)
+    best_thresholds = torch.tensor(best_thresholds, device=device)
 
     return best_thresholds, best_f1, best_precision, best_recall
