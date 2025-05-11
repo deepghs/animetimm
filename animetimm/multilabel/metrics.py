@@ -79,7 +79,7 @@ def recall(tp, fp, tn, fn, mean: bool = True):
 
 def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds=100):
     all_sample = all_sample.cpu().numpy()
-    all_labels = all_labels.to(torch.bool).cpu().numpy()
+    all_labels = (all_labels >= 0.5).cpu().numpy()
 
     # Generate candidate thresholds (0 to 1)
     thresholds = np.linspace(1.0 / num_thresholds, 1, num_thresholds)
@@ -93,19 +93,19 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
 
         for th in thresholds:
             ppos = sample >= th
-            tp = (ppos & labels).sum()
-            fp = (ppos & ~labels).sum()
-            fn = (~ppos & labels).sum()
+            tp = ((ppos == 1) & (labels == 1)).sum()
+            fp = ((ppos == 1) & (labels == 0)).sum()
+            fn = ((ppos == 0) & (labels == 1)).sum()
 
-            precision = tp / (tp + fp + 1e-12)
-            recall = tp / (tp + fn + 1e-12)
+            p = tp / (tp + fp + 1e-12)
+            r = tp / (tp + fn + 1e-12)
             beta_sq = alpha ** 2
-            f1_numerator = (1 + beta_sq) * precision * recall
-            f1_denominator = beta_sq * precision + recall + 1e-12
+            f1_numerator = (1 + beta_sq) * p * r
+            f1_denominator = beta_sq * p + r + 1e-12
             f1 = f1_numerator / f1_denominator
             f1s.append(f1)
-            pres.append(precision)
-            recs.append(recall)
+            pres.append(p)
+            recs.append(r)
             ths.append(th)
 
         f1s = np.array(f1s)
