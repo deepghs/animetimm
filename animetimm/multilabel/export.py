@@ -10,6 +10,7 @@ from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transfo
 from timm.models._hub import save_for_hf
 from torchvision.transforms import Compose
 
+from animetimm.utils import torch_model_profile
 from .augmentation import create_transforms
 from .dataset import load_pretrained_tag
 from ..model import Model
@@ -125,6 +126,14 @@ def export(workdir: str):
         image = Image.new('RGB', (1024, 1024), 'white')
         dummy_input = test_trans(image).unsqueeze(0)
         logging.info(f'Dummy input for model: {dummy_input.shape!r}')
+
+        flops, params = torch_model_profile(model=model, input_=dummy_input)
+        meta_info['flops'] = flops
+        meta_info['params'] = params
+        new_meta_file = os.path.join(upload_dir, 'meta.json')
+        logging.info(f'Saving metadata to {new_meta_file!r} ...')
+        with open(new_meta_file, 'w') as f:
+            json.dump(meta_info, f, indent=4, sort_keys=True, ensure_ascii=False)
 
         onnx_file = os.path.join(upload_dir, 'model.onnx')
         logging.info(f'Dumping to onnx file {onnx_file!r} ...')
