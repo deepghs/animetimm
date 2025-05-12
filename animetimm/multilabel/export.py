@@ -3,9 +3,7 @@ import os
 from pprint import pformat
 from tempfile import TemporaryDirectory
 
-import numpy as np
 import pandas as pd
-import torch
 from PIL import Image
 from ditk import logging
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
@@ -125,7 +123,7 @@ def export(workdir: str):
             json.dump(trans, f, ensure_ascii=False, sort_keys=True, indent=4)
 
         image = Image.new('RGB', (1024, 1024), 'white')
-        dummy_input = torch.from_numpy(test_trans(image)[np.newaxis, ...])
+        dummy_input = test_trans(image).unsqueeze(0)
         logging.info(f'Dummy input for model: {dummy_input.shape!r}')
 
         onnx_file = os.path.join(upload_dir, 'model.onnx')
