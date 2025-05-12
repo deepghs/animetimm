@@ -134,6 +134,7 @@ def export(workdir: str):
             onnx_filename=onnx_file,
             metadata={**meta, 'tags': json.dumps(model.tags)},
             wrap_mode='sigmoid',
+            verbose=False,
         )
 
         os.system(f'tree {upload_dir!r}')
