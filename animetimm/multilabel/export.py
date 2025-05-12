@@ -138,7 +138,7 @@ def export(workdir: str):
         onnx_file = os.path.join(upload_dir, 'model.onnx')
         logging.info(f'Dumping to onnx file {onnx_file!r} ...')
         export_model_to_onnx(
-            model=model,
+            model=model.module,
             dummy_input=dummy_input,
             onnx_filename=onnx_file,
             metadata={**meta, 'tags': json.dumps(model.tags)},
