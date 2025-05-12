@@ -1,5 +1,6 @@
 import json
 import os
+from pprint import pformat
 from tempfile import TemporaryDirectory
 
 import pandas as pd
@@ -12,12 +13,15 @@ from ..model import Model
 
 def export(workdir: str):
     with TemporaryDirectory() as upload_dir:
-        with open(os.path.join(workdir, 'meta.json'), 'r') as f:
+        meta_info_file =os.path.join(workdir, 'meta.json')
+        logging.info(f'Loading meta from {meta_info_file!r} ...')
+        with open(meta_info_file, 'r') as f:
             meta_info = json.load(f)
 
         dataset_repo_id = meta_info['train']['dataset']
         checkpoints = os.path.join(workdir, 'checkpoints')
         best_ckpt_zip_file = os.path.join(checkpoints, 'best.zip')
+        logging.info(f'Loading model from {best_ckpt_zip_file!r} ...')
         model, meta, metrics = Model.load_from_zip(best_ckpt_zip_file)
 
         model: Model
@@ -25,6 +29,7 @@ def export(workdir: str):
         logging.info(f'Pretrained tag {pretrained_tag!r} found for dataset {dataset_repo_id!r}.')
         model.pretrained_tag = pretrained_tag
 
+        logging.info(f'Dumping as huggingface TIMM format to {upload_dir!r} ...')
         save_for_hf(
             model.module,
             upload_dir,
@@ -35,7 +40,8 @@ def export(workdir: str):
             safe_serialization='both',
         )
 
-        with open(os.path.join(upload_dir, 'metrics.json'), 'w') as f:
+        metrics_file = os.path.join(upload_dir, 'metrics.json')
+        with open(metrics_file, 'w') as f:
             metrics_info = {}
             if os.path.exists(os.path.join(workdir, 'test_metrics.json')):
                 with open(os.path.join(workdir, 'test_metrics.json'), 'r') as mf:
@@ -45,6 +51,7 @@ def export(workdir: str):
                 for key, value in metrics.items()
                 if isinstance(value, (type(None), int, float, str))
             }
+            logging.info(f'Writing metrics to {metrics_file!r}:\n{pformat(metrics_info)}')
             json.dump(metrics_info, f, sort_keys=True, ensure_ascii=False, indent=4)
 
         df_eval_tags: pd.DataFrame = metrics['df_details']
@@ -60,7 +67,9 @@ def export(workdir: str):
             df_tags['best_f1'] = df_test_tags['best_f1']
             df_tags['best_precision'] = df_test_tags['best_precision']
             df_tags['best_recall'] = df_test_tags['best_recall']
-        df_tags.to_csv(os.path.join(upload_dir, 'selected_tags.csv'), index=False)
+        tags_file = os.path.join(upload_dir, 'selected_tags.csv')
+        logging.info(f'Dumping tags with metrics to {tags_file!r}:\n{df_tags}')
+        df_tags.to_csv(tags_file, index=False)
 
         os.system(f'tree {upload_dir!r}')
 
