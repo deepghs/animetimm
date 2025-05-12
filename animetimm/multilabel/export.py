@@ -77,7 +77,7 @@ def export(workdir: str):
         transforms_file = os.path.join(workdir, 'preprocess.json')
         logging.info(f'Dumping preprocessors to {transforms_file!r} ...')
         with open(transforms_file, 'w') as f:
-            eval_trans = create_transforms(
+            eval_trans, _ = create_transforms(
                 timm_model=model.module,
                 is_training=False,
                 use_test_size=False,
@@ -92,7 +92,7 @@ def export(workdir: str):
             )
             logging.info(f'Eval transform:\n{eval_trans}')
 
-            test_trans = create_transforms(
+            test_trans, _ = create_transforms(
                 timm_model=model.module,
                 is_training=False,
                 use_test_size=True,
