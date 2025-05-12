@@ -41,7 +41,7 @@ def export_model_to_onnx(model: Model, dummy_input: torch.Tensor, onnx_filename:
             onnx_model_file,
             verbose=verbose,
             input_names=["input"],
-            output_names=["embedding", "prediction", "logits"],
+            output_names=["embedding", "logits", "prediction"],
 
             opset_version=opset_version,
             dynamic_axes={
