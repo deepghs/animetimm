@@ -109,7 +109,7 @@ def export(workdir: str):
 
             pre_trans = []
             if meta_info['train']['pre_align']:
-                pre_trans.append(PadToSize(size=meta_info['align_size']))
+                pre_trans.append(PadToSize(size=meta_info['train']['align_size']))
             pre_trans = Compose(pre_trans)
             logging.info(f'Pre transform:\n{pre_trans}')
 
