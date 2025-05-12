@@ -187,7 +187,7 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
             print(f'- timm', file=f)
             print(f'- transformers', file=f)
             print(f'- animetimm', file=f)
-            print(f'- imgutils', file=f)
+            print(f'- dghs-imgutils', file=f)
             print(f'library_name: timm', file=f)
             print(f'license: gpl-3.0', file=f)
             print(f'datasets:', file=f)
