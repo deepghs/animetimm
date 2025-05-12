@@ -34,6 +34,7 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
         logging.info(f'Loading meta from {meta_info_file!r} ...')
         with open(meta_info_file, 'r') as f:
             meta_info = json.load(f)
+        meta_info['type'] = 'multilabel'
 
         dataset_repo_id = meta_info['train']['dataset']
         checkpoints = os.path.join(workdir, 'checkpoints')
