@@ -62,6 +62,7 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
             safe_serialization='both',
         )
 
+        print(metrics)
         metrics_file = os.path.join(upload_dir, 'metrics.json')
         with open(metrics_file, 'w') as f:
             metrics_info = {}
