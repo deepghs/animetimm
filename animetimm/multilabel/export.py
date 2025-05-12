@@ -182,6 +182,7 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
 
         with open(os.path.join(upload_dir, 'README.md'), 'w') as f:
             print(f'---', file=f)
+            print(f'tags:', file=f)
             print(f'- image-classification', file=f)
             print(f'- timm', file=f)
             print(f'- transformers', file=f)
