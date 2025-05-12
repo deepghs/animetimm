@@ -74,7 +74,7 @@ def export(workdir: str):
         logging.info(f'Dumping tags with metrics to {tags_file!r}:\n{df_tags}')
         df_tags.to_csv(tags_file, index=False)
 
-        transforms_file = os.path.join(workdir, 'preprocess.json')
+        transforms_file = os.path.join(upload_dir, 'preprocess.json')
         logging.info(f'Dumping preprocessors to {transforms_file!r} ...')
         with open(transforms_file, 'w') as f:
             eval_trans, _ = create_transforms(
