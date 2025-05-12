@@ -117,8 +117,8 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
 
         ma = int(np.argmax(f1s).item())
         mb = int(ma) + 1
-        while np.isclose(f1s[ma], f1s[mb]) and np.isclose(pres[ma], pres[mb]) \
-                and np.isclose(recs[ma], recs[mb]) and mb < f1s.shape[0]:
+        while mb < f1s.shape[0] and np.isclose(f1s[ma], f1s[mb]) and np.isclose(pres[ma], pres[mb]) \
+                and np.isclose(recs[ma], recs[mb]):
             mb += 1
         mb = mb - 1
         best_f1.append(f1s[ma])
