@@ -5,15 +5,18 @@ from tempfile import TemporaryDirectory
 
 import pandas as pd
 from ditk import logging
+from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
 from timm.models._hub import save_for_hf
+from torchvision.transforms import Compose
 
+from .augmentation import create_transforms
 from .dataset import load_pretrained_tag
 from ..model import Model
 
 
 def export(workdir: str):
     with TemporaryDirectory() as upload_dir:
-        meta_info_file =os.path.join(workdir, 'meta.json')
+        meta_info_file = os.path.join(workdir, 'meta.json')
         logging.info(f'Loading meta from {meta_info_file!r} ...')
         with open(meta_info_file, 'r') as f:
             meta_info = json.load(f)
@@ -70,6 +73,52 @@ def export(workdir: str):
         tags_file = os.path.join(upload_dir, 'selected_tags.csv')
         logging.info(f'Dumping tags with metrics to {tags_file!r}:\n{df_tags}')
         df_tags.to_csv(tags_file, index=False)
+
+        transforms_file = os.path.join(workdir, 'preprocess.json')
+        logging.info(f'Dumping preprocessors to {transforms_file!r} ...')
+        with open(transforms_file, 'w') as f:
+            eval_trans = create_transforms(
+                timm_model=model.module,
+                is_training=False,
+                use_test_size=False,
+                noise_level=0,
+                rotation_ratio=0,
+                mixup_alpha=0.0,
+                cutout_patches=0,
+                cutout_max_pct=0.0,
+                random_resize_method=False,
+                pre_align=meta_info['train']['pre_align'],
+                align_size=meta_info['train']['align_size'],
+            )
+            logging.info(f'Eval transform:\n{eval_trans}')
+
+            test_trans = create_transforms(
+                timm_model=model.module,
+                is_training=False,
+                use_test_size=True,
+                noise_level=0,
+                rotation_ratio=0,
+                mixup_alpha=0.0,
+                cutout_patches=0,
+                cutout_max_pct=0.0,
+                random_resize_method=False,
+                pre_align=meta_info['train']['pre_align'],
+                align_size=meta_info['train']['align_size'],
+            )
+            logging.info(f'Test transform:\n{eval_trans}')
+
+            pre_trans = []
+            if meta_info['train']['pre_align']:
+                pre_trans.append(PadToSize(size=meta_info['align_size']))
+            pre_trans = Compose(pre_trans)
+            logging.info(f'Pre transform:\n{pre_trans}')
+
+            trans = {
+                'val': parse_torchvision_transforms(eval_trans),
+                'test': parse_torchvision_transforms(test_trans),
+                'pre': parse_torchvision_transforms(pre_trans),
+            }
+            json.dump(trans, f, ensure_ascii=False, sort_keys=True, indent=4)
 
         os.system(f'tree {upload_dir!r}')
 
