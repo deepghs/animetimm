@@ -70,7 +70,7 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
                 with open(os.path.join(workdir, 'test_metrics.json'), 'r') as mf:
                     metrics_info['test'] = json.load(mf)
             metrics_info['val'] = {
-                key.split('/', maxsplit=1)[1:]: value
+                key.split('/', maxsplit=1)[-1]: value
                 for key, value in metrics.items()
                 if isinstance(value, (type(None), int, float, str))
             }
