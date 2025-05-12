@@ -11,7 +11,7 @@ import pandas as pd
 from PIL import Image
 from ditk import logging
 from hbutils.encoding import sha3
-from hfutils.operate import get_hf_client
+from hfutils.operate import get_hf_client, upload_directory_as_directory
 from hfutils.repository import hf_hub_repo_url
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
 from thop import clever_format
@@ -242,7 +242,13 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
             print(df_s.to_markdown(index=False), file=f)
             print(f'', file=f)
 
-        os.system(f'tree {upload_dir!r}')
+        upload_directory_as_directory(
+            repo_id=repo_id,
+            repo_type='model',
+            local_directory=upload_dir,
+            path_in_repo='.',
+            message=f'Upload model {repo_id!r}',
+        )
 
 
 if __name__ == '__main__':
