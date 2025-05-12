@@ -1,11 +1,15 @@
+import glob
 import json
 import os
+import re
+import shutil
 from pprint import pformat
 from tempfile import TemporaryDirectory
 
 import pandas as pd
 from PIL import Image
 from ditk import logging
+from hbutils.encoding import sha3
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
 from timm.models._hub import save_for_hf
 from torchvision.transforms import Compose
@@ -16,8 +20,10 @@ from .dataset import load_pretrained_tag
 from ..model import Model
 from ..onnx import export_model_to_onnx
 
+_LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P<machine>[^.]+)\.(?P<extra>[\s\S]+)$')
 
-def export(workdir: str):
+
+def export(workdir: str, logfile_anonymous: bool = True):
     with TemporaryDirectory() as upload_dir:
         meta_info_file = os.path.join(workdir, 'meta.json')
         logging.info(f'Loading meta from {meta_info_file!r} ...')
@@ -145,6 +151,22 @@ def export(workdir: str):
             wrap_mode='sigmoid',
             verbose=False,
         )
+
+        for logfile in glob.glob(os.path.join(workdir, 'events.out.tfevents.*')):
+            logging.info(f'Tensorboard file {logfile!r} found.')
+            matching = _LOG_FILE_PATTERN.fullmatch(os.path.basename(logfile))
+            assert matching, f'Log file {logfile!r}\'s name not match with pattern {_LOG_FILE_PATTERN.pattern}.'
+
+            timestamp = matching.group('timestamp')
+            machine = matching.group('machine')
+            if logfile_anonymous:
+                machine = sha3(machine.encode(), n=224)
+            extra = matching.group('extra')
+
+            final_name = f'events.out.tfevents.{timestamp}.{machine}.{extra}'
+            dst_log_file = os.path.join(upload_dir, final_name)
+            logging.info(f'Adding log file {logfile!r} to {dst_log_file!r} ...')
+            shutil.copyfile(logfile, dst_log_file)
 
         os.system(f'tree {upload_dir!r}')
 
