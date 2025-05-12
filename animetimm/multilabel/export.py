@@ -47,7 +47,7 @@ def export(workdir: str):
             }
             json.dump(metrics_info, f, sort_keys=True, ensure_ascii=False, indent=4)
 
-        df_eval_tags: pd.DataFrame = metrics['details']
+        df_eval_tags: pd.DataFrame = metrics['df_details']
         df_tags = df_eval_tags.rename({'mcc': 'val_mcc', 'f1': 'val_f1',
                                        'precision': 'val_precision', 'recall': 'val_recall'})
         if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
