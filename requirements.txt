@@ -17,3 +17,9 @@ tensorboard
 di-toolkit
 accelerate>=1.4.0
 wandb
+onnx
+onnxoptimizer
+onnxsim
+onnxruntime
+thop
+tabulate
