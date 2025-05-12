@@ -3,7 +3,10 @@ import os
 from pprint import pformat
 from tempfile import TemporaryDirectory
 
+import numpy as np
 import pandas as pd
+import torch
+from PIL import Image
 from ditk import logging
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
 from timm.models._hub import save_for_hf
@@ -12,6 +15,7 @@ from torchvision.transforms import Compose
 from .augmentation import create_transforms
 from .dataset import load_pretrained_tag
 from ..model import Model
+from ..onnx import export_model_to_onnx
 
 
 def export(workdir: str):
@@ -119,6 +123,20 @@ def export(workdir: str):
                 'pre': parse_torchvision_transforms(pre_trans),
             }
             json.dump(trans, f, ensure_ascii=False, sort_keys=True, indent=4)
+
+        image = Image.new('RGB', (1024, 1024), 'white')
+        dummy_input = torch.from_numpy(test_trans(image)[np.newaxis, ...])
+        logging.info(f'Dummy input for model: {dummy_input.shape!r}')
+
+        onnx_file = os.path.join(upload_dir, 'model.onnx')
+        logging.info(f'Dumping to onnx file {onnx_file!r} ...')
+        export_model_to_onnx(
+            model=model,
+            dummy_input=dummy_input,
+            onnx_filename=onnx_file,
+            metadata={**meta, 'tags': json.dumps(model.tags)},
+            wrap_mode='sigmoid',
+        )
 
         os.system(f'tree {upload_dir!r}')
 
