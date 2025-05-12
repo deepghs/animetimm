@@ -127,7 +127,7 @@ def export(workdir: str):
         dummy_input = test_trans(image).unsqueeze(0)
         logging.info(f'Dummy input for model: {dummy_input.shape!r}')
 
-        flops, params = torch_model_profile(model=model, input_=dummy_input)
+        flops, params = torch_model_profile(model=model.module, input_=dummy_input)
         meta_info['flops'] = flops
         meta_info['params'] = params
         new_meta_file = os.path.join(upload_dir, 'meta.json')
@@ -138,7 +138,7 @@ def export(workdir: str):
         onnx_file = os.path.join(upload_dir, 'model.onnx')
         logging.info(f'Dumping to onnx file {onnx_file!r} ...')
         export_model_to_onnx(
-            model=model.module,
+            model=model,
             dummy_input=dummy_input,
             onnx_filename=onnx_file,
             metadata={**meta, 'tags': json.dumps(model.tags)},
