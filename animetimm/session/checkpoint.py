@@ -99,7 +99,7 @@ class CheckpointLogger(BaseLogger):
     def _load_best(self):
         if os.path.exists(self._best_zip_ckpt):
             meta, metrics = self._load_zip_ckpt(self._best_zip_ckpt)
-            self._best_metric_value = metrics[self.key_metric]
+            self._best_metric_value = metrics[f'metrics/{self.key_metric}']
             step = meta['step']
             logging.info(f'Best ckpt found at {self._best_zip_ckpt}, '
                          f'with step {step} and {self.key_metric} {self._best_metric_value:.3f}')
