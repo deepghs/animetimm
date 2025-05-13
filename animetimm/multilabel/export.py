@@ -13,6 +13,7 @@ from ditk import logging
 from hbutils.encoding import sha3
 from hfutils.operate import get_hf_client, upload_directory_as_directory
 from hfutils.repository import hf_hub_repo_url
+from huggingface_hub import hf_hub_url
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
 from thop import clever_format
 from timm.models._hub import save_for_hf
@@ -65,11 +66,14 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
 
         print(metrics)
         metrics_file = os.path.join(upload_dir, 'metrics.json')
+        category_thresholds = None
         with open(metrics_file, 'w') as f:
             metrics_info = {}
             if os.path.exists(os.path.join(workdir, 'test_metrics.json')):
                 with open(os.path.join(workdir, 'test_metrics.json'), 'r') as mf:
-                    metrics_info['test'] = json.load(mf)
+                    ji = json.load(mf)
+                    category_thresholds = ji.pop('categories', None)
+                    metrics_info['test'] = ji
             metrics_info['val'] = {
                 key.split('/', maxsplit=1)[-1]: value
                 for key, value in metrics.items()
@@ -219,30 +223,71 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
             print(f'', file=f)
             s_records = [{
                 '#': 'Validation',
-                'macro_f1': '%.3f' % metrics_info['val']['macro_f1'],
-                'macro_mcc': '%.3f' % metrics_info['val']['macro_mcc'],
-                'macro_precision': '%.3f' % metrics_info['val']['macro_precision'],
-                'macro_recall': '%.3f' % metrics_info['val']['macro_recall'],
-                'micro_f1': '%.3f' % metrics_info['val']['micro_f1'],
-                'micro_mcc': '%.3f' % metrics_info['val']['micro_mcc'],
-                'micro_precision': '%.3f' % metrics_info['val']['micro_precision'],
-                'micro_recall': '%.3f' % metrics_info['val']['micro_recall'],
+                'Macro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                    metrics_info['val']['macro_f1'],
+                    metrics_info['val']['macro_mcc'],
+                    metrics_info['val']['macro_precision'],
+                    metrics_info['val']['macro_recall']
+                ),
+                'Micro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                    metrics_info['val']['micro_f1'],
+                    metrics_info['val']['micro_mcc'],
+                    metrics_info['val']['micro_precision'],
+                    metrics_info['val']['micro_recall'],
+                ),
             }]
             if 'test' in metrics_info:
                 s_records.append({
                     '#': 'Test',
-                    'macro_f1': '%.3f' % metrics_info['test']['macro_f1'],
-                    'macro_mcc': '%.3f' % metrics_info['test']['macro_mcc'],
-                    'macro_precision': '%.3f' % metrics_info['test']['macro_precision'],
-                    'macro_recall': '%.3f' % metrics_info['test']['macro_recall'],
-                    'micro_f1': '%.3f' % metrics_info['test']['micro_f1'],
-                    'micro_mcc': '%.3f' % metrics_info['test']['micro_mcc'],
-                    'micro_precision': '%.3f' % metrics_info['test']['micro_precision'],
-                    'micro_recall': '%.3f' % metrics_info['test']['micro_recall'],
+                    'Macro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                        metrics_info['test']['macro_f1'],
+                        metrics_info['test']['macro_mcc'],
+                        metrics_info['test']['macro_precision'],
+                        metrics_info['test']['macro_recall'],
+                    ),
+                    'Micro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                        metrics_info['test']['micro_f1'],
+                        metrics_info['test']['micro_mcc'],
+                        metrics_info['test']['micro_precision'],
+                        metrics_info['test']['micro_recall'],
+                    )
                 })
             df_s = pd.DataFrame(s_records)
             print(df_s.to_markdown(index=False), file=f)
             print(f'', file=f)
+
+            if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
+                print(f'## Thresholds', file=f)
+                print(f'', file=f)
+
+                threshold_file = os.path.join(upload_dir, 'thresholds.csv')
+                logging.info(f'Saving threshold file {threshold_file!r} ...')
+                t_records, ts_records = [], []
+                for item in (category_thresholds or []):
+                    t_records.append({
+                        'category': item['category'],
+                        'alpha': item.get('alpha', 1.0),
+                        'threshold': item['best_threshold'],
+                        'f1': item['best_f1'],
+                        'precision': item['best_precision'],
+                        'recall': item['best_recall'],
+                    })
+                    ts_records.append({
+                        'Category': item['category'],
+                        'Alpha': '%.2f' % item.get('alpha', 1.0),
+                        'Threshold': '%.3f' % item['best_threshold'],
+                        'Micro (F1/P/R)': '%.3f / %.3f / %.3f' % (
+                            item['best_f1'],
+                            item['best_precision'],
+                            item['best_recall'],
+                        )
+                    })
+                pd.DataFrame(t_records).to_csv(threshold_file, index=False)
+                print(pd.DataFrame(ts_records).to_markdown(index=False), file=f)
+                print(f'', file=f)
+                print(f'For tag-level thresholds, you can find them in [selected_tags.csv]'
+                      f'({hf_hub_url(repo_id=repo_id, repo_type="mode", filename="selected_tags.csv")}).')
+                print(f'', file=f)
 
         upload_directory_as_directory(
             repo_id=repo_id,
