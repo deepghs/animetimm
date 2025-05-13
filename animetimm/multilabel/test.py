@@ -123,17 +123,19 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             td = blist[0]
             logging.info(f'Using temporary directory {td!r} for metrics syncing.')
 
+            dst_pt_file = os.path.join(td, f'shard_{accelerator.process_index}.pt')
+            logging.info(f'Saving data of #{accelerator.process_index} to {dst_pt_file!r} ...')
             torch.save({
                 'samples': all_samples,
                 'labels': all_labels,
-            }, os.path.join(td, f'shard_{accelerator.process_index}.pt'))
+            }, dst_pt_file)
 
             accelerator.wait_for_everyone()
 
             if accelerator.is_main_process:
                 logging.info('Gathering metrics data to rank0 ...')
                 all_samples, all_labels = [], []
-                for i in range(accelerator.num_processes):
+                for i in tqdm(range(accelerator.num_processes)):
                     sh_info = torch.load(os.path.join(td, f'shard_{accelerator.process_index}.pt'))
                     all_samples.append(sh_info['samples'])
                     all_labels.append(sh_info['labels'])
