@@ -1,4 +1,4 @@
-import gc
+import json
 import json
 import os
 from typing import Optional, Sequence, List
@@ -114,8 +114,8 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         logging.info(f'Inference ready for #{accelerator.process_index}.')
         accelerator.wait_for_everyone()
 
-        all_samples = torch.concat(all_samples, dim=0)
-        all_labels = torch.concat(all_labels, dim=0)
+        all_samples = torch.concat(all_samples, dim=0).cpu()
+        all_labels = torch.concat(all_labels, dim=0).cpu()
         all_samples, all_labels = accelerator.gather_for_metrics((all_samples, all_labels))
         print('all_samples', all_samples.shape, all_samples.dtype, all_samples.device)
         print('all_labels', all_labels.shape, all_labels.dtype, all_labels.device)
