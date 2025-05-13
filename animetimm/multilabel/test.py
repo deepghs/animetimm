@@ -172,15 +172,16 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
                 'macro_f1': macro_f1,
                 'macro_precision': macro_precision,
                 'macro_recall': macro_recall,
-                'categories': {
-                    cate: {
+                'categories': [
+                    {
+                        'category': cate,
                         'best_f1': c_best_f1[cate],
                         'best_precision': c_best_precision[cate],
                         'best_recall': c_best_recall[cate],
                         'best_threshold': c_best_thresholds[cate],
                     }
                     for cate in c_best_f1.keys()
-                }
+                ]
             }
             logging.info(f'Metrics: {_metrics!r}')
             logging.info(f'Tag detailed information:\n{df_tags_details}')
