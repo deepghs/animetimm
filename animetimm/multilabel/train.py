@@ -83,14 +83,14 @@ def train(
         if model.tags != tags_info.tags:
             raise RuntimeError(f'Tag list not match with the previous checkpoint, '
                                f'if you insist on opening another training task, please use another workdir.')
-        if model.model_args != model_args:
-            raise RuntimeError(f'Model cfgs not match with the previous checkpoint '
-                               f'({model_args!r} vs {model.model_args}), '
-                               f'if you insist on opening another training task, please use another workdir.')
-        if model.pretrained_cfg != pretrained_cfg:
-            raise RuntimeError(f'Pretrained cfgs not match with the previous checkpoint '
-                               f'({pretrained_cfg!r} vs {model.pretrained_cfg}), '
-                               f'if you insist on opening another training task, please use another workdir.')
+        # if model.model_args != model_args:
+        #     raise RuntimeError(f'Model cfgs not match with the previous checkpoint '
+        #                        f'({model_args!r} vs {model.model_args}), '
+        #                        f'if you insist on opening another training task, please use another workdir.')
+        # if model.pretrained_cfg != pretrained_cfg:
+        #     raise RuntimeError(f'Pretrained cfgs not match with the previous checkpoint '
+        #                        f'({pretrained_cfg!r} vs {model.pretrained_cfg}), '
+        #                        f'if you insist on opening another training task, please use another workdir.')
         previous_epoch = meta['step']
         if accelerator.is_main_process:
             logging.info(f'Resume from epoch {previous_epoch!r}.')
