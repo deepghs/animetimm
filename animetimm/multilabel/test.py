@@ -116,13 +116,22 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         all_samples = torch.concat(all_samples, dim=0).cpu()
         all_labels = torch.concat(all_labels, dim=0).cpu()
 
-
         # all_samples, all_labels = accelerator.gather_for_metrics((all_samples, all_labels))
         print('all_samples', all_samples.shape, all_samples.dtype, all_samples.device)
         print('all_labels', all_labels.shape, all_labels.dtype, all_labels.device)
 
         # print((torch.isclose(all_labels, 1.0) | torch.isclose(all_labels, 0.0)).all())
         # quit()
+
+        micro_tp = micro_tp.sum(dim=0)
+        micro_fp = micro_fp.sum(dim=0)
+        micro_tn = micro_tn.sum(dim=0)
+        micro_fn = micro_fn.sum(dim=0)
+
+        macro_tp = macro_tp.sum(dim=0)
+        macro_fp = macro_fp.sum(dim=0)
+        macro_tn = macro_tn.sum(dim=0)
+        macro_fn = macro_fn.sum(dim=0)
 
         # micro_tp = accelerator.gather(micro_tp).sum(dim=0)
         # micro_fp = accelerator.gather(micro_fp).sum(dim=0)

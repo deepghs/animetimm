@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+from ..utils import parallel_call
+
 
 def mcc(tp, fp, tn, fn, mean: bool = True):
     N = (tp + fn + fp + tn)
@@ -88,9 +90,9 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
     # Generate candidate thresholds (0 to 1)
     thresholds = np.linspace(1.0 / num_thresholds, 1, num_thresholds)
 
-    best_f1, best_precision, best_recall, best_thresholds = [], [], [], []
+    best_f1, best_precision, best_recall, best_thresholds = {}, {}, {}, {}
 
-    for idx in tqdm(range(all_sample.shape[-1]), desc='Scan Tags'):
+    def _fn_cal(idx):
         sample, labels = all_sample[..., idx], all_labels[..., idx]
 
         f1s, pres, recs, ths = [], [], [], []
@@ -123,15 +125,21 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
                 and np.isclose(recs[ma], recs[mb]):
             mb += 1
         mb = mb - 1
-        best_f1.append(f1s[ma])
-        best_precision.append(pres[ma])
-        best_recall.append(recs[ma])
-        best_thresholds.append((ths[ma] + ths[mb]) / 2)
+        best_f1[idx] = f1s[ma]
+        best_precision[idx] = pres[ma]
+        best_recall[idx] = recs[ma]
+        best_thresholds[idx] = (ths[ma] + ths[mb]) / 2
 
-    best_f1 = np.array(best_f1)
-    best_precision = np.array(best_precision)
-    best_recall = np.array(best_recall)
-    best_thresholds = np.array(best_thresholds)
+    parallel_call(
+        iterable=range(all_sample.shape[-1]),
+        fn=_fn_cal,
+        desc='Scan Tags'
+    )
+
+    best_f1 = np.array([best_f1[idx] for idx in range(all_sample.shape[-1])])
+    best_precision = np.array([best_precision[idx] for idx in range(all_sample.shape[-1])])
+    best_recall = np.array([best_recall[idx] for idx in range(all_sample.shape[-1])])
+    best_thresholds = np.array([best_thresholds[idx] for idx in range(all_sample.shape[-1])])
 
     return best_thresholds, best_f1, best_precision, best_recall
 
