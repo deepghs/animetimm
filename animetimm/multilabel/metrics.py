@@ -146,7 +146,7 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha: float = 1.0, num_t
 
 
 def compute_optimal_thresholds_by_categories(all_sample, all_labels, df_tags,
-                                             alpha: float = 1.0, num_thresholds: int = 100, max_workers: int = 32):
+                                             alpha: float = 1.0, num_thresholds: int = 100, max_workers: int = 16):
     all_sample = all_sample.detach().cpu().numpy()
     # print(all_labels)
     all_labels = all_labels.to(torch.int32).to(torch.bool).detach().cpu().numpy()
