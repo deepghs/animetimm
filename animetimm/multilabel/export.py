@@ -286,7 +286,7 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
                 print(pd.DataFrame(ts_records).to_markdown(index=False), file=f)
                 print(f'', file=f)
                 print(f'For tag-level thresholds, you can find them in [selected_tags.csv]'
-                      f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv")}).')
+                      f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv")}).', file=f)
                 print(f'', file=f)
 
         upload_directory_as_directory(
