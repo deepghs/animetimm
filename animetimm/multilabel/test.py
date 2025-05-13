@@ -114,20 +114,9 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         logging.info(f'Inference ready for #{accelerator.process_index}.')
         accelerator.wait_for_everyone()
 
-        logging.info('Clearing model from VRAM ...')
-        module = accelerator.unwrap_model(module)
-        module = module.to('cpu')
-        del module
-        gc.collect()
-        torch.cuda.empty_cache()
-
-        logging.info(f'Module releasing ready for #{accelerator.process_index}.')
-        accelerator.wait_for_everyone()
-
         all_samples = torch.concat(all_samples, dim=0)
         all_labels = torch.concat(all_labels, dim=0)
-        all_samples = accelerator.gather(all_samples)
-        all_labels = accelerator.gather(all_labels)
+        all_samples, all_labels = accelerator.gather_for_metrics((all_samples, all_labels))
         print('all_samples', all_samples.shape, all_samples.dtype, all_samples.device)
         print('all_labels', all_labels.shape, all_labels.dtype, all_labels.device)
 
