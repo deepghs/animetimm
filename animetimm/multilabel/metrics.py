@@ -81,7 +81,8 @@ def recall(tp, fp, tn, fn, mean: bool = True):
     return v
 
 
-def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds=100):
+def compute_optimal_thresholds(all_sample, all_labels, alpha: float = 1.0, num_thresholds: int = 100,
+                               max_workers: int = 32):
     all_sample = all_sample.detach().cpu().numpy()
     # print(all_labels)
     all_labels = all_labels.to(torch.int32).to(torch.bool).detach().cpu().numpy()
@@ -133,7 +134,8 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
     parallel_call(
         iterable=range(all_sample.shape[-1]),
         fn=_fn_cal,
-        desc='Scan Tags'
+        desc='Scan Tags',
+        max_workers=max_workers,
     )
 
     best_f1 = np.array([best_f1[idx] for idx in range(all_sample.shape[-1])])
