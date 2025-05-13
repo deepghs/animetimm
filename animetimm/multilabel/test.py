@@ -41,6 +41,8 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         elif list(tags_info.df['name']) != list(df_expected_tags['name']):
             raise RuntimeError('Tag list not match.')
 
+    accelerator.wait_for_everyone()
+
     tags_info.df.to_csv(os.path.join(workdir, 'tags.csv'), index=False)
     checkpoints = os.path.join(workdir, 'checkpoints')
     best_ckpt_zip_file = os.path.join(checkpoints, 'best.zip')
