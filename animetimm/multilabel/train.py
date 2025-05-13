@@ -214,6 +214,7 @@ def train(
 
     label_weights = torch.from_numpy(tags_info.weights).to(accelerator.device)
     for epoch in range(previous_epoch + 1, max_epochs + 1):
+        logging.info(f'Training for epoch {epoch!r}')
         module.train()
         train_lr = scheduler.get_last_lr()[0]
         train_loss = 0.0
