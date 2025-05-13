@@ -1,12 +1,10 @@
 import json
 import os
-from tempfile import TemporaryDirectory
 from typing import Optional, Sequence, List
 
 import pandas as pd
 import torch
 from accelerate import Accelerator
-from accelerate.utils import broadcast_object_list
 from ditk import logging
 from tqdm import tqdm
 
@@ -109,38 +107,15 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             macro_tn += ((preds == 0) & (labels == 0)).sum(dim=0)
             macro_fn += ((preds == 0) & (labels == 1)).sum(dim=0)
 
-            all_samples.append(torch.sigmoid(outputs))
-            all_labels.append(labels_)
+            all_samples.append(torch.sigmoid(outputs).cpu())
+            all_labels.append(labels_.cpu())
 
         logging.info(f'Inference ready for #{accelerator.process_index}.')
         accelerator.wait_for_everyone()
 
         all_samples = torch.concat(all_samples, dim=0).cpu()
         all_labels = torch.concat(all_labels, dim=0).cpu()
-        with TemporaryDirectory() as td:
-            blist = [td]
-            broadcast_object_list(blist, from_process=0)
-            td = blist[0]
-            logging.info(f'Using temporary directory {td!r} for metrics syncing.')
 
-            dst_pt_file = os.path.join(td, f'shard_{accelerator.process_index}.pt')
-            logging.info(f'Saving data of #{accelerator.process_index} to {dst_pt_file!r} ...')
-            torch.save({
-                'samples': all_samples,
-                'labels': all_labels,
-            }, dst_pt_file)
-
-            accelerator.wait_for_everyone()
-
-            if accelerator.is_main_process:
-                logging.info('Gathering metrics data to rank0 ...')
-                all_samples, all_labels = [], []
-                for i in tqdm(range(accelerator.num_processes)):
-                    sh_info = torch.load(os.path.join(td, f'shard_{i}.pt'))
-                    all_samples.append(sh_info['samples'])
-                    all_labels.append(sh_info['labels'])
-                all_samples = torch.concat(all_samples)
-                all_labels = torch.concat(all_labels)
 
         # all_samples, all_labels = accelerator.gather_for_metrics((all_samples, all_labels))
         print('all_samples', all_samples.shape, all_samples.dtype, all_samples.device)
@@ -149,15 +124,15 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         # print((torch.isclose(all_labels, 1.0) | torch.isclose(all_labels, 0.0)).all())
         # quit()
 
-        micro_tp = accelerator.gather(micro_tp).sum(dim=0)
-        micro_fp = accelerator.gather(micro_fp).sum(dim=0)
-        micro_tn = accelerator.gather(micro_tn).sum(dim=0)
-        micro_fn = accelerator.gather(micro_fn).sum(dim=0)
-
-        macro_tp = accelerator.gather(macro_tp).sum(dim=0)
-        macro_fp = accelerator.gather(macro_fp).sum(dim=0)
-        macro_tn = accelerator.gather(macro_tn).sum(dim=0)
-        macro_fn = accelerator.gather(macro_fn).sum(dim=0)
+        # micro_tp = accelerator.gather(micro_tp).sum(dim=0)
+        # micro_fp = accelerator.gather(micro_fp).sum(dim=0)
+        # micro_tn = accelerator.gather(micro_tn).sum(dim=0)
+        # micro_fn = accelerator.gather(micro_fn).sum(dim=0)
+        #
+        # macro_tp = accelerator.gather(macro_tp).sum(dim=0)
+        # macro_fp = accelerator.gather(macro_fp).sum(dim=0)
+        # macro_tn = accelerator.gather(macro_tn).sum(dim=0)
+        # macro_fn = accelerator.gather(macro_fn).sum(dim=0)
 
         if accelerator.is_main_process:
             best_thresholds, best_f1, best_precision, best_recall = \
