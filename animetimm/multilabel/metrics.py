@@ -154,7 +154,7 @@ def compute_optimal_thresholds_by_categories(all_sample, all_labels, df_tags, al
 
         f1s, pres, recs, ths = [], [], [], []
 
-        for th in thresholds:
+        for th in tqdm(thresholds, desc=f'Category {category}'):
             ppos = sample >= th
             tp = ((ppos == 1) & (labels == 1)).sum()
             fp = ((ppos == 1) & (labels == 0)).sum()
