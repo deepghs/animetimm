@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import torch
-from tqdm import tqdm
 
 from ..utils import parallel_call
 
@@ -146,7 +145,8 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha: float = 1.0, num_t
     return best_thresholds, best_f1, best_precision, best_recall
 
 
-def compute_optimal_thresholds_by_categories(all_sample, all_labels, df_tags, alpha=1.0, num_thresholds=100):
+def compute_optimal_thresholds_by_categories(all_sample, all_labels, df_tags,
+                                             alpha: float = 1.0, num_thresholds: int = 100, max_workers: int = 32):
     all_sample = all_sample.detach().cpu().numpy()
     # print(all_labels)
     all_labels = all_labels.to(torch.int32).to(torch.bool).detach().cpu().numpy()
@@ -162,9 +162,10 @@ def compute_optimal_thresholds_by_categories(all_sample, all_labels, df_tags, al
         mask = df_tags['category'] == category
         sample, labels = all_sample[..., mask], all_labels[..., mask]
 
-        f1s, pres, recs, ths = [], [], [], []
+        f1s, pres, recs, ths = {}, {}, {}, {}
 
-        for th in tqdm(thresholds, desc=f'Category {category}'):
+        def _fn_call(idx):
+            th = thresholds[idx]
             ppos = sample >= th
             tp = ((ppos == 1) & (labels == 1)).sum()
             fp = ((ppos == 1) & (labels == 0)).sum()
@@ -176,15 +177,22 @@ def compute_optimal_thresholds_by_categories(all_sample, all_labels, df_tags, al
             f1_numerator = (1 + beta_sq) * p * r
             f1_denominator = beta_sq * p + r + 1e-12
             f1 = f1_numerator / f1_denominator
-            f1s.append(f1)
-            pres.append(p)
-            recs.append(r)
-            ths.append(th)
+            f1s[idx] = f1
+            pres[idx] = p
+            recs[idx] = r
+            ths[idx] = th
 
-        f1s = np.array(f1s)
-        pres = np.array(pres)
-        recs = np.array(recs)
-        ths = np.array(ths)
+        parallel_call(
+            iterable=range(thresholds.shape[0]),
+            fn=_fn_call,
+            desc=f'Scan Thresholds For #{category}',
+            max_workers=max_workers,
+        )
+
+        f1s = np.array([f1s[idx] for idx in range(thresholds.shape[0])])
+        pres = np.array([pres[idx] for idx in range(thresholds.shape[0])])
+        recs = np.array([recs[idx] for idx in range(thresholds.shape[0])])
+        ths = np.array([ths[idx] for idx in range(thresholds.shape[0])])
 
         ma = int(np.argmax(f1s).item())
         mb = int(ma) + 1
