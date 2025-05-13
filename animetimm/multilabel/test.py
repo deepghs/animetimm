@@ -1,10 +1,12 @@
 import json
 import os
+from tempfile import TemporaryDirectory
 from typing import Optional, Sequence, List
 
 import pandas as pd
 import torch
 from accelerate import Accelerator
+from accelerate.utils import broadcast_object_list
 from ditk import logging
 from tqdm import tqdm
 
@@ -115,7 +117,30 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
 
         all_samples = torch.concat(all_samples, dim=0).cpu()
         all_labels = torch.concat(all_labels, dim=0).cpu()
-        all_samples, all_labels = accelerator.gather_for_metrics((all_samples, all_labels))
+        with TemporaryDirectory() as td:
+            blist = [td]
+            broadcast_object_list(blist, from_process=0)
+            td = blist[0]
+            logging.info(f'Using temporary directory {td!r} for metrics syncing.')
+
+            torch.save({
+                'samples': all_samples,
+                'labels': all_labels,
+            }, os.path.join(td, f'shard_{accelerator.process_index}.pt'))
+
+            accelerator.wait_for_everyone()
+
+            if accelerator.is_main_process:
+                logging.info('Gathering metrics data to rank0 ...')
+                all_samples, all_labels = [], []
+                for i in range(accelerator.num_processes):
+                    sh_info = torch.load(os.path.join(td, f'shard_{accelerator.process_index}.pt'))
+                    all_samples.append(sh_info['samples'])
+                    all_labels.append(sh_info['labels'])
+                all_samples = torch.concat(all_samples)
+                all_labels = torch.concat(all_labels)
+
+        # all_samples, all_labels = accelerator.gather_for_metrics((all_samples, all_labels))
         print('all_samples', all_samples.shape, all_samples.dtype, all_samples.device)
         print('all_labels', all_labels.shape, all_labels.dtype, all_labels.device)
 
