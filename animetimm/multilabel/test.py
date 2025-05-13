@@ -9,7 +9,8 @@ from ditk import logging
 from tqdm import tqdm
 
 from .dataset import load_tags, load_pretrained_tag, load_dataloader
-from .metrics import mcc, f1score, precision, recall, compute_optimal_thresholds
+from .metrics import mcc, f1score, precision, recall, compute_optimal_thresholds, \
+    compute_optimal_thresholds_by_categories
 from ..model import Model
 
 
@@ -130,6 +131,9 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             best_thresholds, best_f1, best_precision, best_recall = \
                 compute_optimal_thresholds(all_samples, all_labels, alpha=1.0)
 
+            c_best_thresholds, c_best_f1, c_best_precision, c_best_recall = \
+                compute_optimal_thresholds_by_categories(all_samples, all_labels, alpha=1.0)
+
             micro_mcc = mcc(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
             micro_f1 = f1score(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
             micro_precision = precision(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
@@ -168,6 +172,15 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
                 'macro_f1': macro_f1,
                 'macro_precision': macro_precision,
                 'macro_recall': macro_recall,
+                'categories': {
+                    cate: {
+                        'best_f1': c_best_f1[cate],
+                        'best_precision': c_best_precision[cate],
+                        'best_recall': c_best_recall[cate],
+                        'best_threshold': c_best_thresholds[cate],
+                    }
+                    for cate in c_best_f1.keys()
+                }
             }
             logging.info(f'Metrics: {_metrics!r}')
             logging.info(f'Tag detailed information:\n{df_tags_details}')

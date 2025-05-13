@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -130,5 +132,59 @@ def compute_optimal_thresholds(all_sample, all_labels, alpha=1.0, num_thresholds
     best_precision = np.array(best_precision)
     best_recall = np.array(best_recall)
     best_thresholds = np.array(best_thresholds)
+
+    return best_thresholds, best_f1, best_precision, best_recall
+
+
+def compute_optimal_thresholds_by_categories(all_sample, all_labels, df_tags, alpha=1.0, num_thresholds=100):
+    all_sample = all_sample.detach().cpu().numpy()
+    # print(all_labels)
+    all_labels = all_labels.to(torch.int32).to(torch.bool).detach().cpu().numpy()
+    # print(all_labels.to(torch.int))
+
+    # Generate candidate thresholds (0 to 1)
+    thresholds = np.linspace(1.0 / num_thresholds, 1, num_thresholds)
+
+    best_f1, best_precision, best_recall, best_thresholds = {}, {}, {}, {}
+
+    for category in sorted(set(df_tags['category'])):
+        logging.info(f'Scanning for category {category!r} ...')
+        mask = df_tags['category'] == category
+        sample, labels = all_sample[..., mask], all_labels[..., mask]
+
+        f1s, pres, recs, ths = [], [], [], []
+
+        for th in thresholds:
+            ppos = sample >= th
+            tp = ((ppos == 1) & (labels == 1)).sum()
+            fp = ((ppos == 1) & (labels == 0)).sum()
+            fn = ((ppos == 0) & (labels == 1)).sum()
+
+            p = tp / (tp + fp + 1e-12)
+            r = tp / (tp + fn + 1e-12)
+            beta_sq = alpha ** 2
+            f1_numerator = (1 + beta_sq) * p * r
+            f1_denominator = beta_sq * p + r + 1e-12
+            f1 = f1_numerator / f1_denominator
+            f1s.append(f1)
+            pres.append(p)
+            recs.append(r)
+            ths.append(th)
+
+        f1s = np.array(f1s)
+        pres = np.array(pres)
+        recs = np.array(recs)
+        ths = np.array(ths)
+
+        ma = int(np.argmax(f1s).item())
+        mb = int(ma) + 1
+        while mb < f1s.shape[0] and np.isclose(f1s[ma], f1s[mb]) and np.isclose(pres[ma], pres[mb]) \
+                and np.isclose(recs[ma], recs[mb]):
+            mb += 1
+        mb = mb - 1
+        best_f1[category] = float(f1s[ma])
+        best_precision[category] = float(pres[ma])
+        best_recall[category] = float(recs[ma])
+        best_thresholds[category] = float((ths[ma] + ths[mb]) / 2)
 
     return best_thresholds, best_f1, best_precision, best_recall
