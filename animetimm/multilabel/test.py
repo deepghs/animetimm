@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 from typing import Optional, Sequence, List
@@ -109,6 +110,19 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
 
             all_samples.append(torch.sigmoid(outputs))
             all_labels.append(labels_)
+
+        logging.info(f'Inference ready for #{accelerator.process_index}.')
+        accelerator.wait_for_everyone()
+
+        logging.info('Clearing model from VRAM ...')
+        module = accelerator.unwrap_model(module)
+        module = module.to('cpu')
+        del module
+        gc.collect()
+        torch.cuda.empty_cache()
+
+        logging.info(f'Module releasing ready for #{accelerator.process_index}.')
+        accelerator.wait_for_everyone()
 
         all_samples = torch.concat(all_samples, dim=0)
         all_labels = torch.concat(all_labels, dim=0)
