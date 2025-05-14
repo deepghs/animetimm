@@ -136,11 +136,12 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
 
                 df_models_level = df_models_level.sort_values(by=['downloads', 'likes', 'downloads_all_time'],
                                                               ascending=False)
-                d_arch_models = {}
+                arch_models = []
+                exist_archs = set()
                 for item in df_models_level.to_dict('records'):
                     level_name = item['level_name']
-                    if item['architecture'] not in d_arch_models:
-                        d_arch_models[item['architecture']] = {
+                    if item['architecture'] not in exist_archs:
+                        arch_models.append({
                             'Name': f'[{item["name"]}]({hf_hub_repo_url(repo_id=item["repo_id"], repo_type="model")})',
                             'Architecture': item['architecture'],
                             'Params': clever_format(item['params'], '%.1f'),
@@ -148,11 +149,12 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
                             'Num Features': item['num_features'],
                             'Downloads (Current / All Time)': f'{item["downloads"]} / {item["downloads_all_time"]}',
                             'Likes': item['likes'],
-                        }
-                    if len(d_arch_models) >= max_cnt_per_level:
+                        })
+                        exist_archs.add(item['architecture'])
+                    if len(arch_models) >= max_cnt_per_level:
                         break
 
-                df_level = pd.DataFrame(list(d_arch_models.values()))
+                df_level = pd.DataFrame(arch_models)
                 df_level = df_level.sort_values(by=['downloads', 'likes', 'downloads_all_time'], ascending=False)
 
                 print(f'## {level_id} - {level_name}', file=f)
