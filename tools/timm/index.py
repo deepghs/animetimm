@@ -32,12 +32,12 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
 
     if not drop_previous and hf_client.file_exists(
             repo_id=repository,
-            repo_type='model',
+            repo_type='dataset',
             filename='models.parquet',
     ):
         df_models = pd.read_parquet(hf_client.hf_hub_download(
             repo_id=repository,
-            repo_type='model',
+            repo_type='dataset',
             filename='models.parquet',
         ))
         d_models = {item['name']: item for item in df_models.to_dict('records')}
