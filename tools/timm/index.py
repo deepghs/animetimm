@@ -27,10 +27,10 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
     delete_detached_cache()
     if not hf_client.repo_exists(repo_id=repository, repo_type='dataset'):
         hf_client.create_repo(repo_id=repository, repo_type='dataset', private=True)
-        attr_lines = hf_fs.read_text(f'{repository}/.gitattributes').splitlines(keepends=False)
+        attr_lines = hf_fs.read_text(f'datasets/{repository}/.gitattributes').splitlines(keepends=False)
         attr_lines.append('*.json filter=lfs diff=lfs merge=lfs -text')
         attr_lines.append('*.csv filter=lfs diff=lfs merge=lfs -text')
-        hf_fs.write_text(f'{repository}/.gitattributes', os.linesep.join(attr_lines))
+        hf_fs.write_text(f'datasets/{repository}/.gitattributes', os.linesep.join(attr_lines))
 
     if not drop_previous and hf_client.file_exists(
             repo_id=repository,
