@@ -141,7 +141,7 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
                     level_name = item['level_name']
                     if item['architecture'] not in d_arch_models:
                         d_arch_models[item['architecture']] = {
-                            'Name': f'[{item["model_name"]}]({hf_hub_repo_url(repo_id=item["repo_id"], repo_type="model")})',
+                            'Name': f'[{item["name"]}]({hf_hub_repo_url(repo_id=item["repo_id"], repo_type="model")})',
                             'Architecture': item['architecture'],
                             'Params': clever_format(item['params'], '%.1f'),
                             'Num Classes': item['num_classes'],
