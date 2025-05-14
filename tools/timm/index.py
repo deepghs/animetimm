@@ -134,8 +134,7 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
                 if len(df_models_level) == 0:
                     continue
 
-                df_models_level = df_models_level.sort_values(by=['downloads', 'likes', 'downloads_all_time'],
-                                                              ascending=False)
+                df_models_level = df_models_level.sort_values(by=['downloads', 'likes'], ascending=False)
                 arch_models = []
                 exist_archs = set()
                 for item in df_models_level.to_dict('records'):
@@ -147,7 +146,7 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
                             'Params': clever_format(item['params'], '%.1f'),
                             'Num Classes': item['num_classes'],
                             'Num Features': item['num_features'],
-                            'Downloads (Current / All Time)': f'{item["downloads"]} / {item["downloads_all_time"]}',
+                            'Downloads': item["downloads"],
                             'Likes': item['likes'],
                         })
                         exist_archs.add(item['architecture'])
