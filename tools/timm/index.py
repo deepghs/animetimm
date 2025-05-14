@@ -50,6 +50,9 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
             continue
         if name_filter and not name_filter(model_name):
             continue
+        if model_name in d_models:
+            logging.info(f'Model {model_name!r} already exist, skipped.')
+            continue
 
         model_repo_id = f'timm/{model_name}'
         if not hf_client.repo_exists(repo_id=model_repo_id, repo_type='model'):
