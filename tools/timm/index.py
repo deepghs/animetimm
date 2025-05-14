@@ -9,6 +9,7 @@ from hbutils.string import plural_word
 from hbutils.system import TemporaryDirectory
 from hfutils.cache import delete_detached_cache
 from hfutils.operate import get_hf_client, get_hf_fs, upload_directory_as_directory
+from hfutils.repository import hf_hub_repo_url
 from huggingface_hub import hf_hub_download
 from thop import clever_format
 from timm import list_pretrained
@@ -139,7 +140,15 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
                 for item in df_models_level.to_dict('records'):
                     level_name = item['level_name']
                     if item['architecture'] not in d_arch_models:
-                        d_arch_models[item['architecture']] = item
+                        d_arch_models[item['architecture']] = {
+                            'Name': f'[{item["model_name"]}]({hf_hub_repo_url(repo_id=item["repo_id"], repo_type="model")})',
+                            'Architecture': item['architecture'],
+                            'Params': clever_format(item['params'], '%.1f'),
+                            'Num Classes': item['num_classes'],
+                            'Num Features': item['num_features'],
+                            'Downloads (Current / All Time)': f'{item["downloads"]} / {item["downloads_all_time"]}',
+                            'Likes': item['likes'],
+                        }
                     if len(d_arch_models) >= max_cnt_per_level:
                         break
 
