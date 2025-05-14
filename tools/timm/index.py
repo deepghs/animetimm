@@ -5,8 +5,10 @@ from typing import Optional, Callable
 
 import pandas as pd
 from ditk import logging
+from hbutils.string import plural_word
+from hbutils.system import TemporaryDirectory
 from hfutils.cache import delete_detached_cache
-from hfutils.operate import get_hf_client, get_hf_fs
+from hfutils.operate import get_hf_client, get_hf_fs, upload_directory_as_directory
 from huggingface_hub import hf_hub_download
 from thop import clever_format
 from timm import list_pretrained
@@ -16,12 +18,12 @@ from .level import classify_model_by_params
 
 
 def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
-         name_filter: Optional[Callable[[str, ], bool]] = None):
+         name_filter: Optional[Callable[[str, ], bool]] = None, max_cnt_per_level: int = 10):
     hf_client = get_hf_client()
     hf_fs = get_hf_fs()
     delete_detached_cache()
-    if not hf_client.repo_exists(repo_id=repository, repo_type='model'):
-        hf_client.create_repo(repo_id=repository, repo_type='model', private=True)
+    if not hf_client.repo_exists(repo_id=repository, repo_type='dataset'):
+        hf_client.create_repo(repo_id=repository, repo_type='dataset', private=True)
         attr_lines = hf_fs.read_text(f'{repository}/.gitattributes').splitlines(keepends=False)
         attr_lines.append('*.json filter=lfs diff=lfs merge=lfs -text')
         attr_lines.append('*.csv filter=lfs diff=lfs merge=lfs -text')
@@ -99,7 +101,60 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
         }
         d_models[row['name']] = row
 
-    df_models = pd.DataFrame(list(d_models.values()))
+    with TemporaryDirectory() as upload_dir:
+        df_models = pd.DataFrame(list(d_models.values()))
+        df_models.to_parquet(os.path.join(upload_dir, 'models.parquet'), index=False)
+
+        with open(os.path.join(upload_dir, 'README.md'), 'w') as f:
+            print(f'---', file=f)
+            print(f'tags:', file=f)
+            print(f'- image-classification', file=f)
+            print(f'- timm', file=f)
+            print(f'- animetimm', file=f)
+            print(f'- dghs-imgutils', file=f)
+            print(f'---', file=f)
+            print(f'', file=f)
+
+            print(f'Index for timm models of different size levels', file=f)
+            print(f'', file=f)
+
+            print(f'{plural_word(len(df_models), "model")} in total.', file=f)
+            print(f'', file=f)
+            print(f'For each level, only the top-{max_cnt_per_level} '
+                  f'most popular pretrained weight of each architecture will be listed here.', file=f)
+            print(f'', file=f)
+
+            for level_id in range(11):
+                level_name = None
+                df_models_level = df_models[df_models['level'] == level_id]
+                if len(df_models_level) == 0:
+                    continue
+
+                df_models_level = df_models_level.sort_values(by=['downloads', 'likes', 'downloads_all_time'],
+                                                              ascending=False)
+                d_arch_models = {}
+                for item in df_models_level.to_dict('records'):
+                    level_name = item['level_name']
+                    if item['architecture'] not in d_arch_models:
+                        d_arch_models[item['architecture']] = item
+                    if len(d_arch_models) >= max_cnt_per_level:
+                        break
+
+                df_level = pd.DataFrame(list(d_arch_models.values()))
+                df_level = df_level.sort_values(by=['downloads', 'likes', 'downloads_all_time'], ascending=False)
+
+                print(f'## {level_id} - {level_name}', file=f)
+                print(f'', file=f)
+                print(df_level.to_markdown(index=False), file=f)
+                print(f'', file=f)
+
+        upload_directory_as_directory(
+            repo_id=repository,
+            repo_type='dataset',
+            local_directory=upload_dir,
+            path_in_repo='.',
+            message=f'Sync for {plural_word(len(df_models), "model")}',
+        )
 
 
 if __name__ == '__main__':
