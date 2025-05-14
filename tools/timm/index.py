@@ -32,6 +32,13 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
         attr_lines.append('*.csv filter=lfs diff=lfs merge=lfs -text')
         hf_fs.write_text(f'datasets/{repository}/.gitattributes', os.linesep.join(attr_lines))
 
+    df_imagenet = pd.read_csv(hf_client.hf_hub_download(
+        repo_id='deepghs/timm_results',
+        repo_type='dataset',
+        filename='deepghs/timm_results',
+    ))
+    d_imagenet = {item['model']: item for item in df_imagenet['model']}
+
     if not drop_previous and hf_client.file_exists(
             repo_id=repository,
             repo_type='dataset',
@@ -86,7 +93,7 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
                     if len(df_models_level) == 0:
                         continue
 
-                    df_models_level = df_models_level.sort_values(by=['downloads', 'likes'], ascending=False)
+                    df_models_level = df_models_level.sort_values(by=['top5', 'top1'], ascending=False)
                     arch_models = []
                     exist_archs = set()
                     for item in df_models_level.to_dict('records'):
@@ -96,6 +103,9 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
                                 'Name': f'[{item["name"]}]({hf_hub_repo_url(repo_id=item["repo_id"], repo_type="model")})',
                                 'Architecture': item['architecture'],
                                 'Params': clever_format(item['params'], '%.1f'),
+                                'Input Size': item['img_size'],
+                                'Top-1': f'{item["top1"]:.2f}%',
+                                'Top-5': f'{item["top5"]:.2f}%',
                                 'Num Classes': item['num_classes'],
                                 'Num Features': item['num_features'],
                                 'Downloads': item["downloads"],
@@ -129,6 +139,8 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
         if model_name.startswith('tf_'):
             continue
         if name_filter and not name_filter(model_name):
+            continue
+        if model_name not in d_imagenet:
             continue
         if model_name in d_models:
             logging.info(f'Model {model_name!r} already exist, skipped.')
@@ -174,6 +186,11 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
             'repo_id': model_repo_id,
             'architecture': architecture,
             'params': params,
+            'img_size': d_imagenet[model_name]['img_size'],
+            'top1': d_imagenet[model_name]['top1'],
+            'top5': d_imagenet[model_name]['top5'],
+            'crop_pct': d_imagenet[model_name]['crop_pct'],
+            'interpolation': d_imagenet[model_name]['interpolation'],
             'level': level_id,
             'level_name': level_name,
             'num_classes': num_classes,
