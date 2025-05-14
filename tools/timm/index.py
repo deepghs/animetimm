@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import time
 from typing import Optional, Callable
 
 import pandas as pd
@@ -19,7 +20,8 @@ from .level import classify_model_by_params
 
 
 def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
-         name_filter: Optional[Callable[[str, ], bool]] = None, max_cnt_per_level: int = 10):
+         name_filter: Optional[Callable[[str, ], bool]] = None, max_cnt_per_level: int = 10,
+         deploy_span: float = 5 * 60):
     hf_client = get_hf_client()
     hf_fs = get_hf_fs()
     delete_detached_cache()
@@ -43,6 +45,83 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
         d_models = {item['name']: item for item in df_models.to_dict('records')}
     else:
         d_models = {}
+
+    _last_update, has_update = None, False
+    _total_count = len(d_models)
+
+    def _deploy(force=False):
+        nonlocal _last_update, has_update, _total_count
+
+        if not has_update:
+            return
+        if not force and _last_update is not None and _last_update + deploy_span > time.time():
+            return
+
+        with TemporaryDirectory() as upload_dir:
+            df_models = pd.DataFrame(list(d_models.values()))
+            df_models.to_parquet(os.path.join(upload_dir, 'models.parquet'), index=False)
+
+            with open(os.path.join(upload_dir, 'README.md'), 'w') as f:
+                print(f'---', file=f)
+                print(f'tags:', file=f)
+                print(f'- image-classification', file=f)
+                print(f'- timm', file=f)
+                print(f'- animetimm', file=f)
+                print(f'- dghs-imgutils', file=f)
+                print(f'---', file=f)
+                print(f'', file=f)
+
+                print(f'Index for timm models of different size levels', file=f)
+                print(f'', file=f)
+
+                print(f'{plural_word(len(df_models), "model")} in total.', file=f)
+                print(f'', file=f)
+                print(f'For each level, only the top-{max_cnt_per_level} '
+                      f'most popular pretrained weight of each architecture will be listed here.', file=f)
+                print(f'', file=f)
+
+                for level_id in range(11):
+                    level_name = None
+                    df_models_level = df_models[df_models['level'] == level_id]
+                    if len(df_models_level) == 0:
+                        continue
+
+                    df_models_level = df_models_level.sort_values(by=['downloads', 'likes'], ascending=False)
+                    arch_models = []
+                    exist_archs = set()
+                    for item in df_models_level.to_dict('records'):
+                        level_name = item['level_name']
+                        if item['architecture'] not in exist_archs:
+                            arch_models.append({
+                                'Name': f'[{item["name"]}]({hf_hub_repo_url(repo_id=item["repo_id"], repo_type="model")})',
+                                'Architecture': item['architecture'],
+                                'Params': clever_format(item['params'], '%.1f'),
+                                'Num Classes': item['num_classes'],
+                                'Num Features': item['num_features'],
+                                'Downloads': item["downloads"],
+                                'Likes': item['likes'],
+                            })
+                            exist_archs.add(item['architecture'])
+                        if len(arch_models) >= max_cnt_per_level:
+                            break
+
+                    df_level = pd.DataFrame(arch_models)
+
+                    print(f'## {level_id} - {level_name}', file=f)
+                    print(f'', file=f)
+                    print(df_level.to_markdown(index=False), file=f)
+                    print(f'', file=f)
+
+            upload_directory_as_directory(
+                repo_id=repository,
+                repo_type='dataset',
+                local_directory=upload_dir,
+                path_in_repo='.',
+                message=f'Sync for {plural_word(len(df_models), "model")}',
+            )
+            has_update = False
+            _total_count = len(df_models)
+            _last_update = time.time()
 
     all_pretrained = list_pretrained()[:100]
     random.shuffle(all_pretrained)
@@ -100,73 +179,13 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
             'num_classes': num_classes,
             'num_features': num_features,
             'downloads': repo_info.downloads,
-            'downloads_all_time': repo_info.downloads_all_time,
             'likes': repo_info.likes,
         }
         d_models[row['name']] = row
+        has_update = True
+        _deploy(force=False)
 
-    with TemporaryDirectory() as upload_dir:
-        df_models = pd.DataFrame(list(d_models.values()))
-        df_models.to_parquet(os.path.join(upload_dir, 'models.parquet'), index=False)
-
-        with open(os.path.join(upload_dir, 'README.md'), 'w') as f:
-            print(f'---', file=f)
-            print(f'tags:', file=f)
-            print(f'- image-classification', file=f)
-            print(f'- timm', file=f)
-            print(f'- animetimm', file=f)
-            print(f'- dghs-imgutils', file=f)
-            print(f'---', file=f)
-            print(f'', file=f)
-
-            print(f'Index for timm models of different size levels', file=f)
-            print(f'', file=f)
-
-            print(f'{plural_word(len(df_models), "model")} in total.', file=f)
-            print(f'', file=f)
-            print(f'For each level, only the top-{max_cnt_per_level} '
-                  f'most popular pretrained weight of each architecture will be listed here.', file=f)
-            print(f'', file=f)
-
-            for level_id in range(11):
-                level_name = None
-                df_models_level = df_models[df_models['level'] == level_id]
-                if len(df_models_level) == 0:
-                    continue
-
-                df_models_level = df_models_level.sort_values(by=['downloads', 'likes'], ascending=False)
-                arch_models = []
-                exist_archs = set()
-                for item in df_models_level.to_dict('records'):
-                    level_name = item['level_name']
-                    if item['architecture'] not in exist_archs:
-                        arch_models.append({
-                            'Name': f'[{item["name"]}]({hf_hub_repo_url(repo_id=item["repo_id"], repo_type="model")})',
-                            'Architecture': item['architecture'],
-                            'Params': clever_format(item['params'], '%.1f'),
-                            'Num Classes': item['num_classes'],
-                            'Num Features': item['num_features'],
-                            'Downloads': item["downloads"],
-                            'Likes': item['likes'],
-                        })
-                        exist_archs.add(item['architecture'])
-                    if len(arch_models) >= max_cnt_per_level:
-                        break
-
-                df_level = pd.DataFrame(arch_models)
-
-                print(f'## {level_id} - {level_name}', file=f)
-                print(f'', file=f)
-                print(df_level.to_markdown(index=False), file=f)
-                print(f'', file=f)
-
-        upload_directory_as_directory(
-            repo_id=repository,
-            repo_type='dataset',
-            local_directory=upload_dir,
-            path_in_repo='.',
-            message=f'Sync for {plural_word(len(df_models), "model")}',
-        )
+    _deploy(force=True)
 
 
 if __name__ == '__main__':
