@@ -31,6 +31,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
 
     dataset_repo_id = meta_info['train']['dataset']
     tag_categories = tag_categories or meta_info['train'].get('tag_categories')
+    seen_tag_keys = seen_tag_keys or meta_info['train'].get('seem_tag_keys') or meta_info['train'].get('seen_tag_keys')
 
     tags_info = load_tags(repo_id=dataset_repo_id, categories=tag_categories)
     if os.path.exists(os.path.join(workdir, 'tags.csv')):

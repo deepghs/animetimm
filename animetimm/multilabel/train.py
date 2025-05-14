@@ -133,7 +133,7 @@ def train(
         **model_args,
         'pretrained_tag': pretrained_tag,
         'tag_categories': tag_categories,
-        'seem_tag_keys': seen_tag_keys,
+        'seen_tag_keys': seen_tag_keys,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
