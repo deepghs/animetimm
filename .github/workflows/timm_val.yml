@@ -72,4 +72,4 @@ jobs:
         continue-on-error: true
         run: |
           git clone https://github.com/huggingface/pytorch-image-models.git
-          hfutils upload -r deepghs/timm_results -d . -i results -w 'results-*.csv'
+          hfutils upload -r deepghs/timm_results -d . -i pytorch-image-models/results -w 'results-*.csv'
