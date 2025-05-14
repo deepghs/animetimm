@@ -208,4 +208,7 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
 
 if __name__ == '__main__':
     logging.try_init_root(level=logging.INFO)
-    sync(max_cnt_per_level=30)
+    sync(
+        max_cnt_per_level=30,
+        drop_previous=True,
+    )
