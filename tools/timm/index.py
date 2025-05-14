@@ -155,8 +155,21 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
         repo_info = hf_client.repo_info(repo_id=model_repo_id, repo_type='model')
         if repo_info.safetensors and repo_info.safetensors.total:
             params = repo_info.safetensors.total
+        elif hf_client.file_exists(
+                repo_id=model_repo_id,
+                repo_type='model',
+                filename='model.safetensors',
+        ):
+            params = hf_fs.size(f'{model_repo_id}/model.safetensors') // 4
+        elif hf_client.file_exists(
+                repo_id=model_repo_id,
+                repo_type='model',
+                filename='pytorch_model.bin',
+        ):
+            params = hf_fs.size(f'{model_repo_id}/pytorch_model.bin') // 4
         else:
-            params = d_imagenet[model_name]['param_count'] * 1e6
+            logging.warn(f'No size or model file found for {model_repo_id!r}, skipped.')
+            continue
 
         s_params = clever_format(params, "%.1f")
         level_id, level_name = classify_model_by_params(params / 1e6)
