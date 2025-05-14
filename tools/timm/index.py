@@ -155,7 +155,6 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
                         break
 
                 df_level = pd.DataFrame(arch_models)
-                df_level = df_level.sort_values(by=['downloads', 'likes', 'downloads_all_time'], ascending=False)
 
                 print(f'## {level_id} - {level_name}', file=f)
                 print(f'', file=f)
