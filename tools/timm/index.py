@@ -35,7 +35,7 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
     df_imagenet = pd.read_csv(hf_client.hf_hub_download(
         repo_id='deepghs/timm_results',
         repo_type='dataset',
-        filename='deepghs/timm_results',
+        filename='results-imagenet.csv',
     ))
     d_imagenet = {item['model']: item for item in df_imagenet['model']}
 
