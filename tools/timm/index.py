@@ -123,7 +123,7 @@ def sync(repository: str = 'deepghs/timms_index', drop_previous: bool = False,
             _total_count = len(df_models)
             _last_update = time.time()
 
-    all_pretrained = list_pretrained()[:100]
+    all_pretrained = list_pretrained()
     random.shuffle(all_pretrained)
     for model_name in tqdm(all_pretrained, desc='Scanning Models'):
         if model_name.startswith('tf_'):
