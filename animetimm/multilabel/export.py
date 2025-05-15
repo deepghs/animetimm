@@ -58,9 +58,9 @@ def export(workdir: str, repo_id: Optional[str] = None,
         if not hf_client.repo_exists(repo_id=repo_id, repo_type='model'):
             hf_client.create_repo(repo_id=repo_id, repo_type='model', private=visibility == 'private')
             if visibility == 'gated':
-                hf_client.update_repo_settings(repo_id=repo_id, repo_type='model',gated='auto')
+                hf_client.update_repo_settings(repo_id=repo_id, repo_type='model', gated='auto')
             elif visibility == 'manual':
-                hf_client.update_repo_settings(repo_id=repo_id, repo_type='model',gated='manual')
+                hf_client.update_repo_settings(repo_id=repo_id, repo_type='model', gated='manual')
 
         logging.info(f'Dumping as huggingface TIMM format to {upload_dir!r} ...')
         save_for_hf(
@@ -173,7 +173,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             model=model,
             dummy_input=dummy_input_test,
             onnx_filename=onnx_file,
-            metadata={**meta, 'tags': json.dumps(model.tags)},
+            metadata={**meta, 'tags': model.tags},
             wrap_mode='sigmoid',
             verbose=False,
         )
