@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Literal, Sequence
+from typing import Dict, List, Optional, Literal
 
 import numpy as np
 import pandas as pd
@@ -7,21 +7,13 @@ import torch
 from datasets import load_dataset as _timm_load_dataset
 from ditk import logging
 from huggingface_hub import hf_hub_download
-from timm import create_model
 from torch.utils.data import DataLoader
-from tqdm import tqdm
-
-_DEFAULT_KEYS = [
-    'rating',
-    'general_tags',
-    'character_tags',
-]
 
 
-def load_dataset(repo_id: str, split: str = 'train', transforms: Optional = None, image_key: str = 'webp',
-                 categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None):
+def load_dataset(repo_id: str, tag_key: str, tag_filters: Optional[dict] = None,
+                 split: str = 'train', image_key: str = 'webp', transforms: Optional = None):
     dataset = _timm_load_dataset(repo_id, split=split)
-    tags_info = load_tags(repo_id, categories=categories)
+    tags_info = load_tags(repo_id, filters=tag_filters)
     tags_to_id = tags_info.tags_to_id
 
     def _trans(row):
@@ -34,11 +26,7 @@ def load_dataset(repo_id: str, split: str = 'train', transforms: Optional = None
 
         all_labels = []
         for json_ in row['json']:
-            labels = torch.zeros(len(tags_to_id), dtype=torch.float32)
-            for tag_key in (seen_tag_keys or _DEFAULT_KEYS):
-                for tag in json_[tag_key]:
-                    labels[tags_to_id[tag]] = 1.0
-            all_labels.append(labels)
+            all_labels.append(tags_to_id[json_[tag_key]])
         row['labels'] = all_labels
         return row
 
@@ -46,21 +34,18 @@ def load_dataset(repo_id: str, split: str = 'train', transforms: Optional = None
     return dataset
 
 
-def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'validation'] = 'train',
+def load_dataloader(repo_id: str, model, tag_key: str, split: Literal['train', 'test', 'validation'] = 'train',
                     batch_size: int = 256, num_workers: int = 128, noise_level: int = 2,
-                    rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
-                    cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
-                    pre_align: bool = True, align_size: int = 512, is_main_process: bool = True,
-                    image_key: str = 'webp',
-                    categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None):
+                    rotation_ratio: float = 0.25, cutout_max_pct: float = 0.25, cutout_patches: int = 1,
+                    random_resize_method: bool = True, pre_align: bool = True, align_size: int = 512,
+                    is_main_process: bool = True, image_key: str = 'webp'):
     from .augmentation import create_transforms
-    trans, post_trans = create_transforms(
+    trans = create_transforms(
         timm_model=model,
         is_training=split == 'train',
         use_test_size=split == 'test',
         noise_level=noise_level if split == 'train' else 0,
         rotation_ratio=rotation_ratio,
-        mixup_alpha=mixup_alpha,
         cutout_max_pct=cutout_max_pct,
         cutout_patches=cutout_patches,
         random_resize_method=random_resize_method,
@@ -69,7 +54,6 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
     )
     if is_main_process:
         logging.info(f'Transforms loaded (for {split}):\n{trans}')
-        logging.info(f'Post transforms loaded (for {split}):\n{post_trans}')
 
     if is_main_process:
         logging.info(f'Loading dataset from {repo_id!r} (for {split}) ...')
@@ -77,9 +61,8 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
         repo_id=repo_id,
         split=split,
         transforms=trans,
-        categories=categories,
-        seen_tag_keys=seen_tag_keys,
         image_key=image_key,
+        tag_key=tag_key,
     )
 
     def collate_fn(examples):
@@ -90,8 +73,7 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
             labels.append(example["labels"])
 
         pixel_values = torch.stack(images)
-        labels = torch.stack(labels)
-        pixel_values, labels = post_trans((pixel_values, labels))
+        labels = torch.as_tensor(labels)
         return pixel_values, labels
 
     dataloader = DataLoader(
@@ -113,24 +95,28 @@ class TagsInfo:
     weights: np.ndarray
 
 
-def load_tags(repo_id: str, categories: Optional[Sequence[int]] = None) -> TagsInfo:
+def load_tags(repo_id: str, filters: Optional[dict] = None, cof: float = 1.0) -> TagsInfo:
     df_tags = pd.read_parquet(hf_hub_download(
         repo_id=repo_id,
         repo_type='dataset',
         filename='tags.parquet',
     ))
-    if categories:
-        categories = set(categories or [])
-        df_tags = df_tags[df_tags['category'].isin(categories)]
+    for column, value in (filters or {}).items():
+        df_tags = df_tags[df_tags[column] == value]
     d_min_counts = {}
-    for cate in sorted(set(df_tags['category'])):
-        df_cate_tags = df_tags[df_tags['category'] == cate]
-        d_min_counts[cate] = int(df_cate_tags['selected_count'].min())
+    if 'category' in df_tags.columns:
+        has_category = True
+        for cate in sorted(set(df_tags['category'])):
+            df_cate_tags = df_tags[df_tags['category'] == cate]
+            d_min_counts[cate] = int(df_cate_tags['selected_count'].min())
+    else:
+        has_category = False
+        d_min_counts[None] = int(df_tags['selected_count'].min())
 
     weights = []
     for _, item in df_tags.iterrows():
-        min_count = d_min_counts[int(item['category'])]
-        weights.append(1 / (np.log(int(item['selected_count'])) / np.log(min_count)))
+        min_count = d_min_counts[int(item['category']) if has_category else None]
+        weights.append((1 / (np.log(int(item['selected_count'])) / np.log(min_count))) ** cof)
 
     df_tags['weights'] = weights
     return TagsInfo(
@@ -142,21 +128,13 @@ def load_tags(repo_id: str, categories: Optional[Sequence[int]] = None) -> TagsI
 
 
 if __name__ == '__main__':
-    rid = 'animetimm/danbooru-wdtagger-v4-w640-ws-full'
-    mid = "caformer_s36.sail_in22k_ft_in1k_384"
-    model = create_model(mid, pretrained=False)
-    dataloader = load_dataloader(
-        repo_id=rid,
-        model=model,
-        split='train',
-    )
+    repo_id = 'deepghs/danbooru-wdtagger-v4a-w640-ws-fullxx-cls'
+    f = load_tags(repo_id=repo_id, filters={'category': 1}, cof=0.0)
+    print(f.df)
 
-    ix, ox = None, None
-    for input_, output in tqdm(dataloader):
-        if ix is None:
-            ix = input_.shape, input_.dtype
-            ox = output.shape, output.dtype
-            print(ix, ox)
-        else:
-            assert ix == (input_.shape, input_.dtype)
-            assert ox == (output.shape, output.dtype)
+    ds = load_dataset(
+        repo_id=repo_id,
+        tag_key='artist_tag',
+        tag_filters={'category': 1},
+    )
+    print(ds[0])

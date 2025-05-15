@@ -21,8 +21,8 @@ from thop import clever_format
 from timm.models._hub import save_for_hf
 from torchvision.transforms import Compose
 
+from animetimm.dataset import load_pretrained_tag
 from .augmentation import create_transforms
-from .dataset import load_pretrained_tag
 from .test import test
 from ..model import Model
 from ..onnx import export_model_to_onnx

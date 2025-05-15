@@ -10,9 +10,10 @@ from accelerate import Accelerator
 from ditk import logging
 from tqdm import tqdm
 
-from .dataset import load_tags, load_pretrained_tag, load_dataloader
+from .dataset import load_tags, load_dataloader
 from .metrics import mcc, f1score, precision, recall, compute_optimal_thresholds, \
     compute_optimal_thresholds_by_categories
+from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version
 
@@ -33,6 +34,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         meta_info = json.load(f)
 
     dataset_repo_id = meta_info['train']['dataset']
+    image_key = meta_info['train'].get('image_key') or 'webp'
     tag_categories = tag_categories or meta_info['train'].get('tag_categories')
     seen_tag_keys = seen_tag_keys or meta_info['train'].get('seem_tag_keys') or meta_info['train'].get('seen_tag_keys')
 
@@ -72,6 +74,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         is_main_process=accelerator.is_main_process,
         categories=tag_categories,
         seen_tag_keys=seen_tag_keys,
+        image_key=image_key,
     )
 
     module, test_dataloader = accelerator.prepare(module, test_dataloader)

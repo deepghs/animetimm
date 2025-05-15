@@ -17,8 +17,9 @@ from torch.nn import BCEWithLogitsLoss
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 
-from .dataset import load_tags, load_dataloader, load_pretrained_tag
+from .dataset import load_tags, load_dataloader
 from .metrics import mcc, f1score, precision, recall
+from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..session import TrainSession
 from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value
@@ -49,6 +50,7 @@ def train(
         align_size: int = 512,
         tag_categories: Optional[Sequence[int]] = None,
         seen_tag_keys: Optional[List[str]] = None,
+        image_key: str = 'webp',
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -138,6 +140,7 @@ def train(
         'pretrained_tag': pretrained_tag,
         'tag_categories': tag_categories,
         'seen_tag_keys': seen_tag_keys,
+        'image_key': image_key,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -168,6 +171,7 @@ def train(
         is_main_process=accelerator.is_main_process,
         categories=tag_categories,
         seen_tag_keys=seen_tag_keys,
+        image_key=image_key,
     )
     eval_dataloader = load_dataloader(
         repo_id=dataset_repo_id,
@@ -180,6 +184,7 @@ def train(
         is_main_process=accelerator.is_main_process,
         categories=tag_categories,
         seen_tag_keys=seen_tag_keys,
+        image_key=image_key,
     )
 
     loss_fn = BCEWithLogitsLoss(reduction='none')
@@ -455,6 +460,7 @@ def train(
 @click.option('--seen-tag-keys', '-stk', multiple=True, help='Seen tag keys (multiple)', show_default=True)
 @click.option('--drop-path-rate', '-dpr', default=0.4, type=float, help='Drop path rate', show_default=True)
 @click.option('--workdir', '-w', default=None, type=str, help='Workdir to save training data', show_default=True)
+@click.option('--image_key', '-ik', default='webp', type=str, help='Image key in webdataset.', show_default=True)
 @click.option('--model-arg', '-ma', multiple=True, callback=parse_key_value,
               help='Additional model arguments in format KEY=VALUE. Types are auto-detected.\n'
                    'Use KEY:str=VALUE to force string type.\n'
@@ -469,7 +475,7 @@ def train(
 def cli(set_name, dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio, mixup_alpha,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
-        tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg):
+        tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg, image_key):
     logging.try_init_root(logging.INFO)
 
     rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
@@ -518,6 +524,7 @@ def cli(set_name, dataset_repo_id, max_epochs, model_name, size, num_workers, ba
         tag_categories=tag_categories_seq,
         seen_tag_keys=seen_tag_keys_list,
         max_epochs=max_epochs,
+        image_key=image_key,
     )
 
 
