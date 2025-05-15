@@ -272,10 +272,8 @@ def train(
             train_total = accelerator.gather(
                 torch.tensor([train_total], device=accelerator.device)).sum().detach().cpu().item()
 
-            labs = accelerator.gather(
-                torch.tensor(labs, device=accelerator.device)).detach().cpu().item()
-            preds = accelerator.gather(
-                torch.tensor(preds, device=accelerator.device)).detach().cpu().item()
+            labs = accelerator.gather(labs).detach().cpu().item()
+            preds = accelerator.gather(preds).detach().cpu().item()
 
             train_top1 = accelerator.gather(
                 torch.tensor([train_top1], device=accelerator.device)).sum().detach().cpu().item()
@@ -366,10 +364,8 @@ def train(
                 eval_total = accelerator.gather(
                     torch.tensor([eval_total], device=accelerator.device)).sum().detach().cpu().item()
 
-                labs = accelerator.gather(
-                    torch.tensor(labs, device=accelerator.device)).detach().cpu().item()
-                preds = accelerator.gather(
-                    torch.tensor(preds, device=accelerator.device)).detach().cpu().item()
+                labs = accelerator.gather(labs).detach().cpu().item()
+                preds = accelerator.gather(preds).detach().cpu().item()
 
                 eval_top1 = accelerator.gather(
                     torch.tensor([eval_top1], device=accelerator.device)).sum().detach().cpu().item()
