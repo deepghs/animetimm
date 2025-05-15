@@ -476,7 +476,6 @@ def cli(tag_key, dataset_repo_id, max_epochs, model_name, size, num_workers, bat
         model_args['img_size'] = size
     logging.info(f'Model args to use:\n{pformat(model_args)}')
     logging.info(f'Filters for tag list:\n{pformat(filters)}')
-    quit()
 
     size_suffix = f"_s{size}" if size else ""
     pre_align_mark = f'_p{align_size}' if pre_align else ''
