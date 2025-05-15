@@ -52,6 +52,7 @@ def train(
         image_key: str = 'webp',
         cof: float = 1.0,
         filters: Optional[dict] = None,
+        grayscale_prob: float = 0.0,
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -142,6 +143,8 @@ def train(
         'image_key': image_key,
         'tag_key': tag_key,
         'filters': filters or {},
+        'cof': cof,
+        'grayscale_prob': grayscale_prob,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -455,10 +458,12 @@ def train(
               help='Add filters to tag list. The format is similar to --model-arg.',
               show_default=True)
 @click.option('--cof', '-cf', default=1.0, type=float, help='Co-efficient of class weights.', show_default=True)
+@click.option('--grayscale_prob', '-gp', default=0.0, type=float, help='Grayscale probability when training',
+              show_default=True)
 def cli(tag_key, dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
-        drop_path_rate, workdir, model_arg, image_key, filters, cof):
+        drop_path_rate, workdir, model_arg, image_key, filters, cof, grayscale_prob):
     logging.try_init_root(logging.INFO)
 
     rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
@@ -471,6 +476,7 @@ def cli(tag_key, dataset_repo_id, max_epochs, model_name, size, num_workers, bat
         model_args['img_size'] = size
     logging.info(f'Model args to use:\n{pformat(model_args)}')
     logging.info(f'Filters for tag list:\n{pformat(filters)}')
+    quit()
 
     size_suffix = f"_s{size}" if size else ""
     pre_align_mark = f'_p{align_size}' if pre_align else ''
@@ -505,6 +511,7 @@ def cli(tag_key, dataset_repo_id, max_epochs, model_name, size, num_workers, bat
         image_key=image_key,
         filters=filters,
         cof=cof,
+        grayscale_prob=grayscale_prob,
     )
 
 

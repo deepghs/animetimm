@@ -1,4 +1,5 @@
 import random
+from functools import wraps
 
 import numpy as np
 import torch
@@ -82,3 +83,23 @@ class NothingChange:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
+
+
+def prob_op(prob, op):
+    @wraps(op)
+    def _func(img):
+        if random.random() < prob:
+            return op(img)
+        else:
+            return img
+
+    return _func
+
+
+def _to_greyscale(img):
+    origin_mode = img.mode
+    return img.convert('L').convert(origin_mode)
+
+
+def prob_greyscale(prob: float = 0.5):
+    return prob_op(prob, _to_greyscale)

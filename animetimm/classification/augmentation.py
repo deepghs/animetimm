@@ -4,19 +4,22 @@ from timm.data import create_transform as _timm_create_transform
 from timm.data import resolve_data_config
 from torchvision.transforms import InterpolationMode
 
-from ..augmentation import RandomResizeMethod, Cutout
+from ..augmentation import RandomResizeMethod, Cutout, prob_greyscale
 
 
 def create_transforms(timm_model, is_training: bool = False, use_test_size: bool = False,
                       noise_level: int = 2, rotation_ratio: float = 0.25,
                       cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
-                      pre_align: bool = True, align_size: int = 512):
+                      grayscale_prob: float = 0.0, pre_align: bool = True, align_size: int = 512):
     config = resolve_data_config({}, model=timm_model, use_test_size=use_test_size)
     image_size = config['input_size'][-2]
     transform_list = []
 
     if is_training:
         if noise_level >= 1:
+            if grayscale_prob > 0:
+                transform_list.append(prob_greyscale(grayscale_prob))
+
             transform_list.extend([
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomResizedCrop(image_size, scale=(0.87, 0.998), ratio=(1.0, 1.0)),
