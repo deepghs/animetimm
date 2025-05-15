@@ -492,7 +492,7 @@ def cli(set_name, dataset_repo_id, max_epochs, model_name, size, num_workers, ba
     pre_align_mark = f'_p{align_size}' if pre_align else ''
     dataset_repo_id = dataset_repo_id or f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}'
     pretrained_tag = load_pretrained_tag(dataset_repo_id)
-    workdir = workdir or f'runs/{rmn}_{pretrained_tag}_bs{batch_size}_{pre_align_mark}' \
+    workdir = workdir or f'runs/{pretrained_tag}_{rmn}_bs{batch_size}_{pre_align_mark}' \
                          f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}'
     logging.info(f'Training on dataset {dataset_repo_id!r}, workdir: {workdir!r}.')
 

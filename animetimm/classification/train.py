@@ -1,8 +1,11 @@
 import json
 import os
 import random
+from functools import partial
+from pprint import pformat
 from typing import Optional
 
+import click
 import numpy as np
 import pandas as pd
 import torch
@@ -15,6 +18,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score, precision_r
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 
+from animetimm.utils import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value
 from .dataset import load_tags, load_dataloader
 from .loss import FocalLoss
 from ..dataset import load_pretrained_tag
@@ -405,3 +409,104 @@ def train(
                             'details': df_tags_details,
                         }
                     )
+
+
+@click.command(context_settings={**GLOBAL_CONTEXT_SETTINGS}, help="Training single-label classification models.")
+@click.option('-v', '--version', is_flag=True,
+              callback=partial(print_version, 'animetimm.classification.train'), expose_value=False, is_eager=True)
+@click.option('--tag-key', '-tk', required=True, help='Tag key in webdataset', show_default=True)
+@click.option('--dataset-repo-id', '-ds', required=True, help='Dataset repository to use. '
+                                                              '-s option will be ignored when -ds is used.',
+              show_default=True)
+@click.option('--max-epochs', '-mep', default=100, type=int, help='Maximum number of epochs', show_default=True)
+@click.option('--model-name', '-m', default='caformer_s36.sail_in22k_ft_in1k_384', help='Model name', show_default=True)
+@click.option('--size', type=int, help='Image size', show_default=True)
+@click.option('--num-workers', '-nw', default=32, type=int, help='Number of workers', show_default=True)
+@click.option('--batch-size', '-bs', default=32, type=int, help='Batch size', show_default=True)
+@click.option('--learning-rate', '-lr', default=2e-4, type=float, help='Learning rate', show_default=True)
+@click.option('--weight-decay', '-wd', default=1e-3, type=float, help='Weight decay', show_default=True)
+@click.option('--key-metric', '-km', default='top-5', help='Key metric for evaluation', show_default=True)
+@click.option('--seed', type=int, default=0, help='Random seed', show_default=True)
+@click.option('--eval-epoch', '-ee', default=1, type=int, help='Evaluation epoch interval', show_default=True)
+@click.option('--eval-threshold', '-et', default=0.4, type=float, help='Evaluation threshold', show_default=True)
+@click.option('--noise-level', '-nl', default=2, type=int, help='Noise level', show_default=True)
+@click.option('--rotation-ratio', '-rr', default=0.25, type=float, help='Rotation ratio', show_default=True)
+@click.option('--cutout-max-pct', '-cmp', default=0.0, type=float, help='Cutout max percentage', show_default=True)
+@click.option('--cutout-patches', '-cp', default=0, type=int, help='Cutout patches', show_default=True)
+@click.option('--random-resize-method/--no-random-resize-method', default=True, help='Random resize method',
+              show_default=True)
+@click.option('--pre-align/--no-pre-align', default=True, help='Pre-align', show_default=True)
+@click.option('--align-size', '-as', default=512, type=int, help='Align size', show_default=True)
+@click.option('--drop-path-rate', '-dpr', default=0.4, type=float, help='Drop path rate', show_default=True)
+@click.option('--workdir', '-w', default=None, type=str, help='Workdir to save training data', show_default=True)
+@click.option('--image_key', '-ik', default='webp', type=str, help='Image key in webdataset.', show_default=True)
+@click.option('--model-arg', '-ma', multiple=True, callback=parse_key_value,
+              help='Additional model arguments in format KEY=VALUE. Types are auto-detected.\n'
+                   'Use KEY:str=VALUE to force string type.\n'
+                   'Supported type hints: str, int, float, bool, none, list.\n'
+                   'Examples:\n'
+                   '--model-arg depth=12\n'
+                   '--model-arg embed_dim=768\n'
+                   '--model-arg use_cls_token:bool=true\n'
+                   '--model-arg name:str=123\n'
+                   '--model-arg layers:list=1,2,3',
+              show_default=True)
+@click.option('--filters', multiple=True, callback=parse_key_value,
+              help='Add filters to tag list. The format is similar to --model-arg.',
+              show_default=True)
+@click.option('--cof', '-cf', default=1.0, type=float, help='Co-efficient of class weights.', show_default=True)
+def cli(tag_key, dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
+        key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio,
+        cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
+        drop_path_rate, workdir, model_arg, image_key, filters, cof):
+    logging.try_init_root(logging.INFO)
+
+    rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
+    model_args = {
+        'drop_path_rate': drop_path_rate,
+    }
+    if model_arg:
+        model_args.update(model_arg)
+    if size:
+        model_args['img_size'] = size
+    logging.info(f'Model args to use:\n{pformat(model_args)}')
+    logging.info(f'Filters for tag list:\n{pformat(filters)}')
+
+    size_suffix = f"_s{size}" if size else ""
+    pre_align_mark = f'_p{align_size}' if pre_align else ''
+    pretrained_tag = load_pretrained_tag(dataset_repo_id)
+    workdir = workdir or f'runs/{pretrained_tag}_{rmn}_bs{batch_size}_{pre_align_mark}' \
+                         f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}'
+    logging.info(f'Training on dataset {dataset_repo_id!r}, workdir: {workdir!r}.')
+
+    train(
+        workdir=workdir,
+        tag_key=tag_key,
+        dataset_repo_id=dataset_repo_id,
+        timm_model_name=model_name,
+        num_workers=num_workers,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        key_metric=key_metric,
+        seed=seed,
+        eval_epoch=eval_epoch,
+        eval_threshold=eval_threshold,
+        model_args=model_args,
+        pretrained_cfg=None,
+        noise_level=noise_level,
+        rotation_ratio=rotation_ratio,
+        cutout_max_pct=cutout_max_pct,
+        cutout_patches=cutout_patches,
+        random_resize_method=random_resize_method,
+        pre_align=pre_align,
+        align_size=align_size,
+        max_epochs=max_epochs,
+        image_key=image_key,
+        filters=filters,
+        cof=cof,
+    )
+
+
+if __name__ == '__main__':
+    cli()
