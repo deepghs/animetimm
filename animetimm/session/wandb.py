@@ -13,6 +13,8 @@ from ..model import Model
 
 class WandbLogger(BaseLogger):
     def __init__(self, workdir, project="animetimm", name=None, hyperparams: Optional[dict] = None, **kwargs):
+        project = project.replace('/', '_').replace('\\', '_').replace('#', '_') \
+            .replace(':', '_').replace('?', '_').replace('%', '_')
         BaseLogger.__init__(self, workdir, **kwargs)
         name = name or os.path.basename(workdir)
         self.active = False
