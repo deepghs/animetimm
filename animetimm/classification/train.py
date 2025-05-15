@@ -245,9 +245,6 @@ def train(
             outputs = module(inputs)
             train_total += labels_.shape[0]
 
-            print((
-                'input', inputs.shape, inputs.dtype, 'labels', labels_.shape, labels_.dtype, 'outputs', outputs.shape,
-                outputs.dtype, labels_))
 
             with torch.no_grad():
                 as_ = torch.argsort(outputs, dim=-1)
