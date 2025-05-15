@@ -1,6 +1,8 @@
 import json
 import os
 import random
+from functools import partial
+from pprint import pformat
 from typing import Optional, Sequence, List
 
 import click
@@ -19,7 +21,7 @@ from .dataset import load_tags, load_dataloader, load_pretrained_tag
 from .metrics import mcc, f1score, precision, recall
 from ..model import Model
 from ..session import TrainSession
-from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version
+from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value
 
 
 def train(
@@ -421,10 +423,9 @@ def train(
                     )
 
 
-@click.group(context_settings={**GLOBAL_CONTEXT_SETTINGS})
+@click.command(context_settings={**GLOBAL_CONTEXT_SETTINGS}, help="Training multilabel taggers.")
 @click.option('-v', '--version', is_flag=True,
-              callback=print_version, expose_value=False, is_eager=True,
-              help="Training multilabel taggers.")
+              callback=partial(print_version, 'animetimm.multilabel.train'), expose_value=False, is_eager=True)
 @click.option('--set-name', '-s', default='full', help='Dataset set short name', show_default=True)
 @click.option('--dataset-repo-id', '-ds', default=None, help='Dataset repository to use. '
                                                              '-s option will be ignored when -ds is used.',
@@ -453,18 +454,32 @@ def train(
 @click.option('--seen-tag-keys', '-stk', multiple=True, help='Seen tag keys', show_default=True)
 @click.option('--drop-path-rate', '-dpr', default=0.4, type=float, help='Drop path rate', show_default=True)
 @click.option('--workdir', '-w', default=None, type=str, help='Workdir to save training data', show_default=True)
+@click.option('--model-arg', '-ma', multiple=True, callback=parse_key_value,
+              help='Additional model arguments in format KEY=VALUE. Types are auto-detected.\n'
+                   'Use KEY:str=VALUE to force string type.\n'
+                   'Supported type hints: str, int, float, bool, none, list.\n'
+                   'Examples:\n'
+                   '--model-arg depth=12\n'
+                   '--model-arg embed_dim=768\n'
+                   '--model-arg use_cls_token:bool=true\n'
+                   '--model-arg name:str=123\n'
+                   '--model-arg layers:list=1,2,3',
+              show_default=True)
 def cli(set_name, dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio, mixup_alpha,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
-        tag_categories, seen_tag_keys, drop_path_rate, workdir):
+        tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg):
     logging.try_init_root(logging.INFO)
 
     rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
     model_args = {
         'drop_path_rate': drop_path_rate,
     }
+    if model_arg:
+        model_args.update(model_arg)
     if size:
         model_args['img_size'] = size
+    logging.info(f'Model args to use:\n{pformat(model_args)}')
 
     size_suffix = f"_s{size}" if size else ""
     pre_align_mark = f'_p{align_size}' if pre_align else ''
@@ -472,6 +487,7 @@ def cli(set_name, dataset_repo_id, max_epochs, model_name, size, num_workers, ba
     pretrained_tag = load_pretrained_tag(dataset_repo_id)
     workdir = workdir or f'runs/{rmn}_{pretrained_tag}_bs{batch_size}_{pre_align_mark}' \
                          f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}'
+    logging.info(f'Training on dataset {dataset_repo_id!r}, workdir: {workdir!r}.')
 
     tag_categories_seq = list(tag_categories) if tag_categories else None
     seen_tag_keys_list = list(seen_tag_keys) if seen_tag_keys else None
