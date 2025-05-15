@@ -1,13 +1,16 @@
 import json
 import os
+from functools import partial
 from typing import Optional, Sequence, List
 
+import click
 import pandas as pd
 import torch
 from accelerate import Accelerator
 from ditk import logging
 from tqdm import tqdm
 
+from animetimm.utils import GLOBAL_CONTEXT_SETTINGS, print_version
 from .dataset import load_tags, load_pretrained_tag, load_dataloader
 from .metrics import mcc, f1score, precision, recall, compute_optimal_thresholds, \
     compute_optimal_thresholds_by_categories
@@ -209,13 +212,41 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             df_tags_details.to_csv(os.path.join(workdir, 'test_tags.csv'), index=False)
 
 
-if __name__ == '__main__':
+@click.command(context_settings={**GLOBAL_CONTEXT_SETTINGS}, help="Calculating test metrics for multilabel taggers.")
+@click.option('-v', '--version', is_flag=True,
+              callback=partial(print_version, 'animetimm.multilabel.test'), expose_value=False, is_eager=True)
+@click.option('--num-workers', '-nw', default=32, type=int, help='Number of workers', show_default=True)
+@click.option('--batch-size', '-bs', default=32, type=int, help='Batch size', show_default=True)
+@click.option('--test-threshold', '-tt', default=0.4, type=float, help='Test threshold', show_default=True)
+@click.option('--tag-categories', '-tc', multiple=True, type=int, help='Tag categories (multiple)', show_default=True)
+@click.option('--seen-tag-keys', '-stk', multiple=True, help='Seen tag keys (multiple)', show_default=True)
+@click.option('--workdir', '-w', default=None, type=str, help='Workdir to save training data', show_default=True)
+@click.option('--force/--non-force', default=True, help='Force re-calculate.', show_default=True)
+def cli(workdir, num_workers, batch_size, test_threshold, tag_categories, seen_tag_keys, force):
     logging.try_init_root(logging.INFO)
-    W = os.environ['W']
-    CATES = list(map(int, os.environ['CATES'].split(','))) if os.environ.get('CATES') else None
-    ST = list(os.environ['ST'].split(',')) if os.environ.get('ST') else None
+    tag_categories_seq = list(tag_categories) if tag_categories else None
+    seen_tag_keys_list = list(seen_tag_keys) if seen_tag_keys else None
     test(
-        workdir=W,
-        tag_categories=CATES,
-        seen_tag_keys=ST,
+        workdir=workdir,
+        num_workers=num_workers,
+        batch_size=batch_size,
+        test_threshold=test_threshold,
+        tag_categories=tag_categories_seq,
+        seen_tag_keys=seen_tag_keys_list,
+        force=force,
     )
+
+
+if __name__ == '__main__':
+    cli()
+
+# if __name__ == '__main__':
+#     logging.try_init_root(logging.INFO)
+#     W = os.environ['W']
+#     CATES = list(map(int, os.environ['CATES'].split(','))) if os.environ.get('CATES') else None
+#     ST = list(os.environ['ST'].split(',')) if os.environ.get('ST') else None
+#     test(
+#         workdir=W,
+#         tag_categories=CATES,
+#         seen_tag_keys=ST,
+#     )
