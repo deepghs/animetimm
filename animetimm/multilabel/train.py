@@ -432,9 +432,8 @@ def train(
 @click.command(context_settings={**GLOBAL_CONTEXT_SETTINGS}, help="Training multilabel taggers.")
 @click.option('-v', '--version', is_flag=True,
               callback=partial(print_version, 'animetimm.multilabel.train'), expose_value=False, is_eager=True)
-@click.option('--set-name', '-s', default='full', help='Dataset set short name', show_default=True)
-@click.option('--dataset-repo-id', '-ds', default=None, help='Dataset repository to use. '
-                                                             '-s option will be ignored when -ds is used.',
+@click.option('--dataset-repo-id', '-ds', default='animetimm/danbooru-wdtagger-v4-w640-ws-full',
+              help='Dataset repository to use.',
               show_default=True)
 @click.option('--max-epochs', '-mep', default=100, type=int, help='Maximum number of epochs', show_default=True)
 @click.option('--model-name', '-m', default='caformer_s36.sail_in22k_ft_in1k_384', help='Model name', show_default=True)
@@ -472,7 +471,7 @@ def train(
                    '--model-arg name:str=123\n'
                    '--model-arg layers:list=1,2,3',
               show_default=True)
-def cli(set_name, dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
+def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio, mixup_alpha,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
         tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg, image_key):
@@ -490,7 +489,6 @@ def cli(set_name, dataset_repo_id, max_epochs, model_name, size, num_workers, ba
 
     size_suffix = f"_s{size}" if size else ""
     pre_align_mark = f'_p{align_size}' if pre_align else ''
-    dataset_repo_id = dataset_repo_id or f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}'
     pretrained_tag = load_pretrained_tag(dataset_repo_id)
     workdir = workdir or f'runs/{pretrained_tag}_{rmn}_bs{batch_size}_{pre_align_mark}' \
                          f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}'

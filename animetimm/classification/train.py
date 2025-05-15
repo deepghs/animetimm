@@ -245,7 +245,6 @@ def train(
             outputs = module(inputs)
             train_total += labels_.shape[0]
 
-
             with torch.no_grad():
                 as_ = torch.argsort(outputs, dim=-1)
                 train_top1 += (as_[:, -1] == labels_).sum()
