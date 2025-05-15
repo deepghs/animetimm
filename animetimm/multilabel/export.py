@@ -69,7 +69,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             model_config={
                 'tags': model.tags,
             },
-            model_args=model.model_args,
+            model_args=model.get_actual_model_args(),
             safe_serialization='both',
         )
 

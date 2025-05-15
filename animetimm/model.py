@@ -75,6 +75,19 @@ class Model:
     def pretrained_tag(self, new_tag):
         self.pretrained_cfg['tag'] = new_tag
 
+    def get_actual_model_args(self) -> dict:
+        model_args = copy.deepcopy(self.model_args)
+        try:
+            _ = _timm_create_model(model_name=self.model_name, pretrained=False, **model_args)
+        except TypeError:
+            if 'img_size' in model_args:  # for some model dont support img_size (like mobilenet)
+                del model_args['img_size']
+                _ = _timm_create_model(model_name=self.model_name, pretrained=False, **model_args)
+            else:
+                raise
+
+        return model_args
+
     @classmethod
     def new(cls, model_name: str, tags: List[str], pretrained: bool = True,
             model_args: Optional[dict] = None, pretrained_cfg: Optional[dict] = None):
