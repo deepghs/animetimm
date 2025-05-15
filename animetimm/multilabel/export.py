@@ -3,10 +3,12 @@ import json
 import os
 import re
 import shutil
+from functools import partial
 from pprint import pformat
 from tempfile import TemporaryDirectory
-from typing import Optional
+from typing import Optional, Literal
 
+import click
 import pandas as pd
 from PIL import Image
 from ditk import logging
@@ -19,16 +21,19 @@ from thop import clever_format
 from timm.models._hub import save_for_hf
 from torchvision.transforms import Compose
 
-from animetimm.utils import torch_model_profile
 from .augmentation import create_transforms
 from .dataset import load_pretrained_tag
+from .test import test
 from ..model import Model
 from ..onnx import export_model_to_onnx
+from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version
 
 _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P<machine>[^.]+)\.(?P<extra>[\s\S]+)$')
 
 
-def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, logfile_anonymous: bool = True):
+def export(workdir: str, repo_id: Optional[str] = None,
+           visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
+           logfile_anonymous: bool = True):
     hf_client = get_hf_client()
     with TemporaryDirectory() as upload_dir:
         meta_info_file = os.path.join(workdir, 'meta.json')
@@ -51,7 +56,11 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
         repo_id = repo_id or f'animetimm/{model.architecture}.{pretrained_tag}'
         logging.info(f'Target repository: {repo_id!r}.')
         if not hf_client.repo_exists(repo_id=repo_id, repo_type='model'):
-            hf_client.create_repo(repo_id=repo_id, repo_type='model', private=private)
+            hf_client.create_repo(repo_id=repo_id, repo_type='model', private=visibility == 'private')
+            if visibility == 'gated':
+                hf_client.update_repo_settings(gated='auto')
+            elif visibility == 'manual':
+                hf_client.update_repo_settings(gated='manual')
 
         logging.info(f'Dumping as huggingface TIMM format to {upload_dir!r} ...')
         save_for_hf(
@@ -295,13 +304,48 @@ def export(workdir: str, repo_id: Optional[str] = None, private: bool = False, l
             local_directory=upload_dir,
             path_in_repo='.',
             message=f'Upload model {repo_id!r}',
+            clear=True,
         )
 
 
-if __name__ == '__main__':
+@click.command(context_settings={**GLOBAL_CONTEXT_SETTINGS}, help="Calculating test metrics for multilabel taggers.")
+@click.option('-v', '--version', is_flag=True,
+              callback=partial(print_version, 'animetimm.multilabel.test'), expose_value=False, is_eager=True)
+@click.option('--num-workers', '-nw', default=32, type=int, help='Number of workers', show_default=True)
+@click.option('--batch-size', '-bs', default=32, type=int, help='Batch size', show_default=True)
+@click.option('--test-threshold', '-tt', default=0.4, type=float, help='Test threshold', show_default=True)
+@click.option('--tag-categories', '-tc', multiple=True, type=int, help='Tag categories (multiple)', show_default=True)
+@click.option('--seen-tag-keys', '-stk', multiple=True, help='Seen tag keys (multiple)', show_default=True)
+@click.option('--workdir', '-w', default=None, type=str, help='Workdir to save training data', show_default=True)
+@click.option('--force/--non-force', default=True, help='Force re-calculate test metrics.', show_default=True)
+@click.option('--need-metrics/--no-metrics', default=True, help='Need metrics to get tested.', show_default=True)
+@click.option('--visibility', '-V', default='manual', type=click.Choice(['private', 'public', 'gated', 'manual']),
+              help='Visibility when creating model repository (will be ignored when model repository already exist.',
+              show_default=True)
+@click.option('--repository', '-r', default=None, help='Repository for uploading model', show_default=True)
+def cli(workdir, num_workers, batch_size, test_threshold, tag_categories, seen_tag_keys, force, need_metrics,
+        repository, visibility):
     logging.try_init_root(logging.INFO)
-    W = os.environ['W']
+    if need_metrics:
+        tag_categories_seq = list(tag_categories) if tag_categories else None
+        seen_tag_keys_list = list(seen_tag_keys) if seen_tag_keys else None
+        test(
+            workdir=workdir,
+            num_workers=num_workers,
+            batch_size=batch_size,
+            test_threshold=test_threshold,
+            tag_categories=tag_categories_seq,
+            seen_tag_keys=seen_tag_keys_list,
+            force=force,
+        )
+
     export(
-        workdir=W,
-        private=True,
+        workdir=workdir,
+        repo_id=repository,
+        visibility=visibility,
+        logfile_anonymous=True,
     )
+
+
+if __name__ == '__main__':
+    cli()
