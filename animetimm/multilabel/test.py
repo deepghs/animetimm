@@ -10,11 +10,11 @@ from accelerate import Accelerator
 from ditk import logging
 from tqdm import tqdm
 
-from animetimm.utils import GLOBAL_CONTEXT_SETTINGS, print_version
 from .dataset import load_tags, load_pretrained_tag, load_dataloader
 from .metrics import mcc, f1score, precision, recall, compute_optimal_thresholds, \
     compute_optimal_thresholds_by_categories
 from ..model import Model
+from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version
 
 
 def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_threshold: float = 0.4,

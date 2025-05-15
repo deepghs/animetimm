@@ -213,6 +213,7 @@ def train(
                 **{f'train/{key}': value for key, value in train_cfg.items()},
             },
             hyperparams=train_cfg,
+            project=f'{dataset_repo_id}',
         )
         logging.info('Training start!')
 
