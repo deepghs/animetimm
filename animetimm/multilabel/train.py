@@ -3,6 +3,7 @@ import os
 import random
 from typing import Optional, Sequence, List
 
+import click
 import pandas as pd
 import torch
 from accelerate import Accelerator
@@ -14,10 +15,11 @@ from torch.nn import BCEWithLogitsLoss
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 
-from animetimm.model import Model
-from animetimm.multilabel.metrics import mcc, f1score, precision, recall
-from animetimm.session import TrainSession
 from .dataset import load_tags, load_dataloader, load_pretrained_tag
+from .metrics import mcc, f1score, precision, recall
+from ..model import Model
+from ..session import TrainSession
+from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version
 
 
 def train(
@@ -419,34 +421,120 @@ def train(
                     )
 
 
-if __name__ == '__main__':
+@click.group(context_settings={**GLOBAL_CONTEXT_SETTINGS})
+@click.option('-v', '--version', is_flag=True,
+              callback=print_version, expose_value=False, is_eager=True,
+              help="Training multilabel taggers.")
+@click.option('--set-name', '-s', default='full', help='Dataset set short name', show_default=True)
+@click.option('--dataset-repo-id', '-ds', default=None, help='Dataset repository to use. '
+                                                             '-s option will be ignored when -ds is used.',
+              show_default=True)
+@click.option('--max-epochs', '-mep', default=100, type=int, help='Maximum number of epochs', show_default=True)
+@click.option('--model-name', '-m', default='caformer_s36.sail_in22k_ft_in1k_384', help='Model name', show_default=True)
+@click.option('--size', type=int, help='Image size', show_default=True)
+@click.option('--num-workers', '-nw', default=32, type=int, help='Number of workers', show_default=True)
+@click.option('--batch-size', '-bs', default=64, type=int, help='Batch size', show_default=True)
+@click.option('--learning-rate', '-lr', default=2e-4, type=float, help='Learning rate', show_default=True)
+@click.option('--weight-decay', '-wd', default=1e-3, type=float, help='Weight decay', show_default=True)
+@click.option('--key-metric', '-km', default='macro_f1', help='Key metric for evaluation', show_default=True)
+@click.option('--seed', type=int, default=0, help='Random seed', show_default=True)
+@click.option('--eval-epoch', '-ee', default=1, type=int, help='Evaluation epoch interval', show_default=True)
+@click.option('--eval-threshold', '-et', default=0.4, type=float, help='Evaluation threshold', show_default=True)
+@click.option('--noise-level', '-nl', default=2, type=int, help='Noise level', show_default=True)
+@click.option('--rotation-ratio', '-rr', default=0.0, type=float, help='Rotation ratio', show_default=True)
+@click.option('--mixup-alpha', '-ma', default=0.6, type=float, help='Mixup alpha', show_default=True)
+@click.option('--cutout-max-pct', '-cmp', default=0.0, type=float, help='Cutout max percentage', show_default=True)
+@click.option('--cutout-patches', '-cp', default=0, type=int, help='Cutout patches', show_default=True)
+@click.option('--random-resize-method/--no-random-resize-method', default=True, help='Random resize method',
+              show_default=True)
+@click.option('--pre-align/--no-pre-align', default=True, help='Pre-align', show_default=True)
+@click.option('--align-size', '-as', default=512, type=int, help='Align size', show_default=True)
+@click.option('--tag-categories', '-tc', multiple=True, type=int, help='Tag categories', show_default=True)
+@click.option('--seen-tag-keys', '-stk', multiple=True, help='Seen tag keys', show_default=True)
+@click.option('--drop-path-rate', '-dpr', default=0.4, type=float, help='Drop path rate', show_default=True)
+@click.option('--workdir', '-w', default=None, type=str, help='Workdir to save training data', show_default=True)
+def cli(set_name, dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
+        key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio, mixup_alpha,
+        cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
+        tag_categories, seen_tag_keys, drop_path_rate, workdir):
     logging.try_init_root(logging.INFO)
-    set_name = str(os.environ.get('S', '150k') or '150k')
-    max_epoch = int(os.environ.get('MEP', '100') or '100')
-    mn = str(os.environ.get('M', 'caformer_s36.sail_in22k_ft_in1k_384') or 'caformer_s36.sail_in22k_ft_in1k_384')
-    rmn = mn.replace('/', '_').replace(':', '_').replace('\\', '_')
-    size = os.environ.get('SIZE')
-    num_workers = int(os.environ.get('NW', 32) or 32)
-    if size:
-        size = int(size)
-    batch_size = int(os.environ.get('BS', 64) or 64)
-    model_args = dict(
-        drop_path_rate=0.4,
-    )
+
+    rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
+    model_args = {
+        'drop_path_rate': drop_path_rate,
+    }
     if size:
         model_args['img_size'] = size
+
+    size_suffix = f"_s{size}" if size else ""
+    pre_align_mark = f'_p{align_size}' if pre_align else ''
+    dataset_repo_id = dataset_repo_id or f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}'
+    pretrained_tag = load_pretrained_tag(dataset_repo_id)
+    workdir = workdir or f'runs/{rmn}_{pretrained_tag}_bs{batch_size}_{pre_align_mark}' \
+                         f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}'
+
+    tag_categories_seq = list(tag_categories) if tag_categories else None
+    seen_tag_keys_list = list(seen_tag_keys) if seen_tag_keys else None
+
     train(
-        workdir=f'runs/{rmn}_{set_name}_bs{batch_size}_p512x_d0.4_mep{max_epoch}_s{size or ""}',
-        dataset_repo_id=f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}',
-        timm_model_name=mn,
+        workdir=workdir,
+        dataset_repo_id=dataset_repo_id,
+        timm_model_name=model_name,
         num_workers=num_workers,
         batch_size=batch_size,
-        learning_rate=2e-4,
-        noise_level=2,
-        mixup_alpha=0.6,
-        cutout_patches=0,
-        cutout_max_pct=0.0,
-        rotation_ratio=0.0,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        key_metric=key_metric,
+        seed=seed,
+        eval_epoch=eval_epoch,
+        eval_threshold=eval_threshold,
         model_args=model_args,
-        max_epochs=max_epoch,
+        pretrained_cfg=None,
+        noise_level=noise_level,
+        rotation_ratio=rotation_ratio,
+        mixup_alpha=mixup_alpha,
+        cutout_max_pct=cutout_max_pct,
+        cutout_patches=cutout_patches,
+        random_resize_method=random_resize_method,
+        pre_align=pre_align,
+        align_size=align_size,
+        tag_categories=tag_categories_seq,
+        seen_tag_keys=seen_tag_keys_list,
+        max_epochs=max_epochs,
     )
+
+
+if __name__ == '__main__':
+    cli()
+
+# if __name__ == '__main__':
+#     logging.try_init_root(logging.INFO)
+#     set_name = str(os.environ.get('S', '150k') or '150k')
+#     max_epoch = int(os.environ.get('MEP', '100') or '100')
+#     mn = str(os.environ.get('M', 'caformer_s36.sail_in22k_ft_in1k_384') or 'caformer_s36.sail_in22k_ft_in1k_384')
+#     rmn = mn.replace('/', '_').replace(':', '_').replace('\\', '_')
+#     size = os.environ.get('SIZE')
+#     num_workers = int(os.environ.get('NW', 32) or 32)
+#     if size:
+#         size = int(size)
+#     batch_size = int(os.environ.get('BS', 64) or 64)
+#     model_args = dict(
+#         drop_path_rate=0.4,
+#     )
+#     if size:
+#         model_args['img_size'] = size
+#     train(
+#         workdir=f'runs/{rmn}_{set_name}_bs{batch_size}_p512x_d0.4_mep{max_epoch}_s{size or ""}',
+#         dataset_repo_id=f'animetimm/danbooru-wdtagger-v4-w640-ws-{set_name}',
+#         timm_model_name=mn,
+#         num_workers=num_workers,
+#         batch_size=batch_size,
+#         learning_rate=2e-4,
+#         noise_level=2,
+#         mixup_alpha=0.6,
+#         cutout_patches=0,
+#         cutout_max_pct=0.0,
+#         rotation_ratio=0.0,
+#         model_args=model_args,
+#         max_epochs=max_epoch,
+#     )
