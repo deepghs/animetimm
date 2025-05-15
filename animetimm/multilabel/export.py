@@ -21,9 +21,9 @@ from thop import clever_format
 from timm.models._hub import save_for_hf
 from torchvision.transforms import Compose
 
-from animetimm.dataset import load_pretrained_tag
 from .augmentation import create_transforms
 from .test import test
+from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..onnx import export_model_to_onnx
 from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version
@@ -58,9 +58,9 @@ def export(workdir: str, repo_id: Optional[str] = None,
         if not hf_client.repo_exists(repo_id=repo_id, repo_type='model'):
             hf_client.create_repo(repo_id=repo_id, repo_type='model', private=visibility == 'private')
             if visibility == 'gated':
-                hf_client.update_repo_settings(gated='auto')
+                hf_client.update_repo_settings(repo_id=repo_id, repo_type='model',gated='auto')
             elif visibility == 'manual':
-                hf_client.update_repo_settings(gated='manual')
+                hf_client.update_repo_settings(repo_id=repo_id, repo_type='model',gated='manual')
 
         logging.info(f'Dumping as huggingface TIMM format to {upload_dir!r} ...')
         save_for_hf(
