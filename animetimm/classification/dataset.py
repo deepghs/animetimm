@@ -38,7 +38,7 @@ def load_dataloader(repo_id: str, model, tag_key: str, split: Literal['train', '
                     batch_size: int = 256, num_workers: int = 128, noise_level: int = 2,
                     rotation_ratio: float = 0.25, cutout_max_pct: float = 0.25, cutout_patches: int = 1,
                     random_resize_method: bool = True, pre_align: bool = True, align_size: int = 512,
-                    is_main_process: bool = True, image_key: str = 'webp'):
+                    is_main_process: bool = True, image_key: str = 'webp', tag_filters: Optional[dict] = None, ):
     from .augmentation import create_transforms
     trans = create_transforms(
         timm_model=model,
@@ -63,6 +63,7 @@ def load_dataloader(repo_id: str, model, tag_key: str, split: Literal['train', '
         transforms=trans,
         image_key=image_key,
         tag_key=tag_key,
+        tag_filters=tag_filters,
     )
 
     def collate_fn(examples):

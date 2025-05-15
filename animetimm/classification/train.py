@@ -174,6 +174,7 @@ def train(
         is_main_process=accelerator.is_main_process,
         image_key=image_key,
         tag_key=tag_key,
+        tag_filters=filters,
     )
     eval_dataloader = load_dataloader(
         repo_id=dataset_repo_id,
@@ -186,6 +187,7 @@ def train(
         is_main_process=accelerator.is_main_process,
         image_key=image_key,
         tag_key=tag_key,
+        tag_filters=filters,
     )
 
     loss_fn = FocalLoss(reduction='none', num_classes=len(tags_info.tags), weight=tags_info.weights)
@@ -244,8 +246,8 @@ def train(
             train_total += labels_.shape[0]
 
             print((
-                  'input', inputs.shape, inputs.dtype, 'labels', labels_.shape, labels_.dtype, 'outputs', outputs.shape,
-                  outputs.dtype, labels_))
+                'input', inputs.shape, inputs.dtype, 'labels', labels_.shape, labels_.dtype, 'outputs', outputs.shape,
+                outputs.dtype, labels_))
 
             with torch.no_grad():
                 as_ = torch.argsort(outputs, dim=-1)
