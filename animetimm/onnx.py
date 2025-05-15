@@ -63,7 +63,7 @@ def export_model_to_onnx(model: Model, dummy_input: torch.Tensor, onnx_filename:
 
         for k, v in natsorted(metadata.items()):
             v = json.dumps(v)
-            logging.info(f'Adding metadata {k!r} = {v!r} ...')
+            # logging.info(f'Adding metadata {k!r} = {v!r} ...')
             assert isinstance(v, str)
             meta = model.metadata_props.add()
             meta.key, meta.value = k, v
