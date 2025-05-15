@@ -156,7 +156,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
 
             c_best_thresholds, c_best_f1, c_best_precision, c_best_recall = \
                 compute_optimal_thresholds_by_categories(all_samples, all_labels, tags_info.df, alpha=1.0,
-                                                         max_workers=16)
+                                                         max_workers=8)
 
             micro_mcc = mcc(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
             micro_f1 = f1score(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
