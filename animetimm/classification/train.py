@@ -392,8 +392,9 @@ def train(
                         'precision': l_precision,
                         'recall': l_recall,
                     })
-                    session.tb_train_log(
+                    session.tb_eval_log(
                         global_step=epoch,
+                        model=model,
                         metrics={
                             'loss': eval_loss / eval_total,
                             'top-1': eval_top1 * 1.0 / eval_total,
