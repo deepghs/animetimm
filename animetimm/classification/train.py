@@ -350,10 +350,7 @@ def train(
                     preds.append(torch.argmax(outputs, dim=-1).detach())
 
                     loss = loss_fn(outputs, labels_).sum()
-                    accelerator.backward(loss)
-                    optimizer.step()
                     eval_loss += loss.item()
-                    scheduler.step()
 
                 accelerator.wait_for_everyone()
 
