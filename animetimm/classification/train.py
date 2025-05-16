@@ -338,16 +338,15 @@ def train(
                     outputs = module(inputs)
                     eval_total += labels_.shape[0]
 
-                    with torch.no_grad():
-                        as_ = torch.argsort(outputs, dim=-1)
-                        eval_top1 += (as_[:, -1] == labels_).sum().detach().cpu().item()
-                        as_top5 = as_[:, -5:]
-                        for t5, expected in zip(as_top5.detach().cpu().tolist(), labels_.detach().cpu().tolist()):
-                            if expected in t5:
-                                eval_top5 += 1
+                    as_ = torch.argsort(outputs, dim=-1)
+                    eval_top1 += (as_[:, -1] == labels_).sum().detach().cpu().item()
+                    as_top5 = as_[:, -5:]
+                    for t5, expected in zip(as_top5.detach().cpu().tolist(), labels_.detach().cpu().tolist()):
+                        if expected in t5:
+                            eval_top5 += 1
 
-                        labs.append(labels_.clone().detach())
-                        preds.append(torch.argmax(outputs, dim=-1).detach())
+                    labs.append(labels_.clone().detach())
+                    preds.append(torch.argmax(outputs, dim=-1).detach())
 
                     loss = loss_fn(outputs, labels_).sum()
                     accelerator.backward(loss)
