@@ -1,16 +1,13 @@
 import json
 
 from hfutils.operate import get_hf_client
+from huggingface_hub.errors import EntryNotFoundError
 
 
 def load_pretrained_tag(repo_id: str) -> str:
     hf_client = get_hf_client()
     tag = repo_id.split('/')[-1]
-    if hf_client.file_exists(
-            repo_id=repo_id,
-            repo_type='dataset',
-            filename='pretrained_tag.json',
-    ):
+    try:
         with open(hf_client.hf_hub_download(
                 repo_id=repo_id,
                 repo_type='dataset',
@@ -20,6 +17,8 @@ def load_pretrained_tag(repo_id: str) -> str:
 
         if 'pretrained_tag' in meta:
             tag = meta['pretrained_tag']
+    except (EntryNotFoundError,):
+        pass
 
     return tag
 
