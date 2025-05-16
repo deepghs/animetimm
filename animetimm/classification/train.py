@@ -236,90 +236,90 @@ def train(
         train_total = 0
         train_top1, train_top5 = 0, 0
 
-        # labs, preds = [], []
-        # for i, (inputs, labels_) in enumerate(tqdm(train_dataloader, disable=not accelerator.is_main_process)):
-        #     inputs = inputs.float()
-        #     labels_ = labels_
-        #
-        #     optimizer.zero_grad()
-        #     outputs = module(inputs)
-        #     train_total += labels_.shape[0]
-        #
-        #     with torch.no_grad():
-        #         as_ = torch.argsort(outputs, dim=-1)
-        #         train_top1 += (as_[:, -1] == labels_).sum().detach().cpu().item()
-        #         as_top5 = as_[:, -5:]
-        #         for t5, expected in zip(as_top5.detach().cpu().tolist(), labels_.detach().cpu().tolist()):
-        #             if expected in t5:
-        #                 train_top5 += 1
-        #
-        #         labs.append(labels_.clone().detach())
-        #         preds.append(torch.argmax(outputs, dim=-1).detach())
-        #
-        #     loss = loss_fn(outputs, labels_).sum()
-        #     accelerator.backward(loss)
-        #     optimizer.step()
-        #     train_loss += loss.item()
-        #     scheduler.step()
-        #
-        # accelerator.wait_for_everyone()
-        #
-        # with torch.no_grad():
-        #     labs = torch.concat(labs)
-        #     preds = torch.concat(preds)
-        #     train_loss = accelerator.gather(
-        #         torch.tensor([train_loss], device=accelerator.device)).sum().detach().cpu().item()
-        #     train_total = accelerator.gather(
-        #         torch.tensor([train_total], device=accelerator.device)).sum().detach().cpu().item()
-        #
-        #     labs = accelerator.gather(labs).detach().cpu().numpy()
-        #     preds = accelerator.gather(preds).detach().cpu().numpy()
-        #
-        #     train_top1 = accelerator.gather(
-        #         torch.tensor([train_top1], device=accelerator.device)).sum().detach().cpu().item()
-        #     train_top5 = accelerator.gather(
-        #         torch.tensor([train_top5], device=accelerator.device)).sum().detach().cpu().item()
-        #
-        # if accelerator.is_main_process:
-        #     with torch.no_grad():
-        #         macro_f1 = f1_score(labs, preds, average='macro', zero_division=0.0)
-        #         macro_precision = precision_score(labs, preds, average='macro', zero_division=0.0)
-        #         macro_recall = recall_score(labs, preds, average='macro', zero_division=0.0)
-        #
-        #         micro_f1 = f1_score(labs, preds, average='micro', zero_division=0.0)
-        #         micro_precision = precision_score(labs, preds, average='micro', zero_division=0.0)
-        #         micro_recall = recall_score(labs, preds, average='micro', zero_division=0.0)
-        #
-        #         l_precision, l_recall, l_f1, _ = precision_recall_fscore_support(
-        #             labs,
-        #             preds,
-        #             labels=np.arange(0, len(tags_info.tags)),
-        #             average=None,
-        #             zero_division=0.0
-        #         )
-        #
-        #     df_tags_details = pd.DataFrame({
-        #         **{name: tags_info.df[name] for name in tags_info.df.columns},
-        #         'f1': l_f1,
-        #         'precision': l_precision,
-        #         'recall': l_recall,
-        #     })
-        #     session.tb_train_log(
-        #         global_step=epoch,
-        #         metrics={
-        #             'loss': train_loss / train_total,
-        #             'top-1': train_top1 * 1.0 / train_total,
-        #             'top-5': train_top5 * 1.0 / train_total,
-        #             'micro_f1': micro_f1,
-        #             'micro_precision': micro_precision,
-        #             'micro_recall': micro_recall,
-        #             'macro_f1': macro_f1,
-        #             'macro_precision': macro_precision,
-        #             'macro_recall': macro_recall,
-        #             'learning_rate': train_lr,
-        #             'details': df_tags_details,
-        #         }
-        #     )
+        labs, preds = [], []
+        for i, (inputs, labels_) in enumerate(tqdm(train_dataloader, disable=not accelerator.is_main_process)):
+            inputs = inputs.float()
+            labels_ = labels_
+
+            optimizer.zero_grad()
+            outputs = module(inputs)
+            train_total += labels_.shape[0]
+
+            with torch.no_grad():
+                as_ = torch.argsort(outputs, dim=-1)
+                train_top1 += (as_[:, -1] == labels_).sum().detach().cpu().item()
+                as_top5 = as_[:, -5:]
+                for t5, expected in zip(as_top5.detach().cpu().tolist(), labels_.detach().cpu().tolist()):
+                    if expected in t5:
+                        train_top5 += 1
+
+                labs.append(labels_.clone().detach())
+                preds.append(torch.argmax(outputs, dim=-1).detach())
+
+            loss = loss_fn(outputs, labels_).sum()
+            accelerator.backward(loss)
+            optimizer.step()
+            train_loss += loss.item()
+            scheduler.step()
+
+        accelerator.wait_for_everyone()
+
+        with torch.no_grad():
+            labs = torch.concat(labs)
+            preds = torch.concat(preds)
+            train_loss = accelerator.gather(
+                torch.tensor([train_loss], device=accelerator.device)).sum().detach().cpu().item()
+            train_total = accelerator.gather(
+                torch.tensor([train_total], device=accelerator.device)).sum().detach().cpu().item()
+
+            labs = accelerator.gather(labs).detach().cpu().numpy()
+            preds = accelerator.gather(preds).detach().cpu().numpy()
+
+            train_top1 = accelerator.gather(
+                torch.tensor([train_top1], device=accelerator.device)).sum().detach().cpu().item()
+            train_top5 = accelerator.gather(
+                torch.tensor([train_top5], device=accelerator.device)).sum().detach().cpu().item()
+
+        if accelerator.is_main_process:
+            with torch.no_grad():
+                macro_f1 = f1_score(labs, preds, average='macro', zero_division=0.0)
+                macro_precision = precision_score(labs, preds, average='macro', zero_division=0.0)
+                macro_recall = recall_score(labs, preds, average='macro', zero_division=0.0)
+
+                micro_f1 = f1_score(labs, preds, average='micro', zero_division=0.0)
+                micro_precision = precision_score(labs, preds, average='micro', zero_division=0.0)
+                micro_recall = recall_score(labs, preds, average='micro', zero_division=0.0)
+
+                l_precision, l_recall, l_f1, _ = precision_recall_fscore_support(
+                    labs,
+                    preds,
+                    labels=np.arange(0, len(tags_info.tags)),
+                    average=None,
+                    zero_division=0.0
+                )
+
+            df_tags_details = pd.DataFrame({
+                **{name: tags_info.df[name] for name in tags_info.df.columns},
+                'f1': l_f1,
+                'precision': l_precision,
+                'recall': l_recall,
+            })
+            session.tb_train_log(
+                global_step=epoch,
+                metrics={
+                    'loss': train_loss / train_total,
+                    'top-1': train_top1 * 1.0 / train_total,
+                    'top-5': train_top5 * 1.0 / train_total,
+                    'micro_f1': micro_f1,
+                    'micro_precision': micro_precision,
+                    'micro_recall': micro_recall,
+                    'macro_f1': macro_f1,
+                    'macro_precision': macro_precision,
+                    'macro_recall': macro_recall,
+                    'learning_rate': train_lr,
+                    'details': df_tags_details,
+                }
+            )
 
         if epoch % eval_epoch == 0:
             module.eval()
