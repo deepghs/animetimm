@@ -339,7 +339,7 @@ def train(
                     eval_total += labels_.shape[0]
 
                     as_ = torch.argsort(outputs, dim=-1)
-                    print(as_.device, labels_.device, type(eval_top1))
+                    # print(as_.device, labels_.device, type(eval_top1))
                     eval_top1 += (as_[:, -1] == labels_).sum().detach().cpu().item()
                     as_top5 = as_[:, -5:]
                     for t5, expected in zip(as_top5.detach().cpu().tolist(), labels_.detach().cpu().tolist()):
