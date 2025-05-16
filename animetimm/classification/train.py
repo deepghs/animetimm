@@ -197,7 +197,7 @@ def train(
         weight_decay=weight_decay,
     )
 
-    module, optimizer, train_dataloader, test_dataloader, loss_fn = \
+    module, optimizer, train_dataloader, eval_dataloader, loss_fn = \
         accelerator.prepare(module, optimizer, train_dataloader, eval_dataloader, loss_fn)
 
     # scheduler do not need to get prepared

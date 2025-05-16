@@ -194,7 +194,7 @@ def train(
         weight_decay=weight_decay,
     )
 
-    module, optimizer, train_dataloader, test_dataloader, loss_fn = \
+    module, optimizer, train_dataloader, eval_dataloader, loss_fn = \
         accelerator.prepare(module, optimizer, train_dataloader, eval_dataloader, loss_fn)
 
     # scheduler do not need to get prepared
@@ -346,7 +346,7 @@ def train(
                 macro_tn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
                 macro_fn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
 
-                for i, (inputs, labels_) in enumerate(tqdm(test_dataloader, disable=not accelerator.is_main_process)):
+                for i, (inputs, labels_) in enumerate(tqdm(eval_dataloader, disable=not accelerator.is_main_process)):
                     inputs = inputs.float()
                     labels_ = labels_
 
