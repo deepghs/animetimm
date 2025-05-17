@@ -18,7 +18,7 @@ class CheckpointLogger(BaseLogger):
     }
 
     def __init__(self, workdir: str, key_metric: str = 'accuracy',
-                 extra_metadata: Optional[Dict[str, Any]] = None, **kwargs):
+                 extra_metadata: Optional[Dict[str, Any]] = None, save_step_when_better: bool = False, **kwargs):
         BaseLogger.__init__(self, workdir, **kwargs)
         self.key_metric = key_metric
         self.extra_metadata = dict(extra_metadata or {})
@@ -26,6 +26,7 @@ class CheckpointLogger(BaseLogger):
         self.ckpt_dir = os.path.join(self.workdir, 'checkpoints')
         self._last_step: Optional[int] = None
         self._best_metric_value: Optional[float] = None
+        self._save_step_when_better = save_step_when_better
         self._load_last()
         self._load_best()
 
@@ -115,12 +116,13 @@ class CheckpointLogger(BaseLogger):
                 model=model,
                 metrics=metrics,
             )
-            self._save_zip_ckpt(
-                zip_file=self._step_zip_ckpt(global_step),
-                global_step=global_step,
-                model=model,
-                metrics=metrics,
-            )
+            if self._save_step_when_better:
+                self._save_zip_ckpt(
+                    zip_file=self._step_zip_ckpt(global_step),
+                    global_step=global_step,
+                    model=model,
+                    metrics=metrics,
+                )
             self._best_metric_value = metrics[self.key_metric]
             logging.info(f'Best ckpt model epoch {global_step} saved, '
                          f'with {self.key_metric}\'s new value {self._best_metric_value:.3f}')
