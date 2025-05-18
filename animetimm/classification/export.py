@@ -227,15 +227,13 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 '#': 'Validation',
                 'Top-1': f"{metrics_info['val']['top-1'] * 100.0:.2f}%",
                 'Top-5': f"{metrics_info['val']['top-5'] * 100.0:.2f}%",
-                'Macro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                'Macro (F1/P/R)': '%.3f / %.3f / %.3f' % (
                     metrics_info['val']['macro_f1'],
-                    metrics_info['val']['macro_mcc'],
                     metrics_info['val']['macro_precision'],
                     metrics_info['val']['macro_recall']
                 ),
-                'Micro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                'Micro (F1/P/R)': '%.3f / %.3f / %.3f' % (
                     metrics_info['val']['micro_f1'],
-                    metrics_info['val']['micro_mcc'],
                     metrics_info['val']['micro_precision'],
                     metrics_info['val']['micro_recall'],
                 ),
@@ -250,7 +248,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                         metrics_info['test']['macro_precision'],
                         metrics_info['test']['macro_recall'],
                     ),
-                    'Micro (F1/MCC/P/R)': '%.3f / %.3f / %.3f' % (
+                    'Micro (F1/P/R)': '%.3f / %.3f / %.3f' % (
                         metrics_info['test']['micro_f1'],
                         metrics_info['test']['micro_precision'],
                         metrics_info['test']['micro_recall'],
