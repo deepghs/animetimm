@@ -6,7 +6,7 @@ import shutil
 from functools import partial
 from pprint import pformat
 from tempfile import TemporaryDirectory
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 
 import click
 import pandas as pd
@@ -33,7 +33,9 @@ _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P
 
 def export(workdir: str, repo_id: Optional[str] = None,
            visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
-           logfile_anonymous: bool = True):
+           logfile_anonymous: bool = True, append_tags: Optional[List[str]] = None,
+           title: Optional[str] = None, description: Optional[str] = None):
+    append_tags = list(append_tags or [])
     hf_client = get_hf_client()
     with TemporaryDirectory() as upload_dir:
         meta_info_file = os.path.join(workdir, 'meta.json')
@@ -53,7 +55,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
         logging.info(f'Pretrained tag {pretrained_tag!r} found for dataset {dataset_repo_id!r}.')
         model.pretrained_tag = pretrained_tag
 
-        repo_id = repo_id or f'animetimm/{model.architecture}.{pretrained_tag}'
+        model_name = '.'.join([model.architecture, pretrained_tag, *append_tags])
+        repo_id = repo_id or f'animetimm/{model_name}'
         logging.info(f'Target repository: {repo_id!r}.')
         if not hf_client.repo_exists(repo_id=repo_id, repo_type='model'):
             hf_client.create_repo(repo_id=repo_id, repo_type='model', private=visibility == 'private')
@@ -218,8 +221,12 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'---', file=f)
             print(f'', file=f)
 
-            print(f'# Anime Tagger {model.architecture}.{pretrained_tag}', file=f)
+            title = title or f'Anime Tagger {model_name}'
+            print(f'# {title}', file=f)
             print(f'', file=f)
+            if description:
+                print(f'{description}', file=f)
+                print(f'', file=f)
 
             s_flops, s_params = clever_format([flops, params], "%.1f")
             print(f'## Model Details', file=f)
@@ -330,8 +337,11 @@ def export(workdir: str, repo_id: Optional[str] = None,
               help='Visibility when creating model repository (will be ignored when model repository already exist.',
               show_default=True)
 @click.option('--repository', '-r', default=None, help='Repository for uploading model', show_default=True)
+@click.option('--tag', '-t', 'tags', multiple=True, type=str, help='Append tags for repository name', show_default=True)
+@click.option('--title', '-T', default=None, type=str, help='Title for repository', show_default=True)
+@click.option('--description', '-desc', default=None, type=str, help='Description for repository', show_default=True)
 def cli(workdir, num_workers, batch_size, test_threshold, tag_categories, seen_tag_keys, force, need_metrics,
-        repository, visibility):
+        repository, visibility, tags, title, description):
     logging.try_init_root(logging.INFO)
     if need_metrics:
         tag_categories_seq = list(tag_categories) if tag_categories else None
@@ -351,6 +361,9 @@ def cli(workdir, num_workers, batch_size, test_threshold, tag_categories, seen_t
         repo_id=repository,
         visibility=visibility,
         logfile_anonymous=True,
+        append_tags=tags,
+        title=title,
+        description=description,
     )
 
 
