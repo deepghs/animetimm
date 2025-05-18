@@ -104,7 +104,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
         transforms_file = os.path.join(upload_dir, 'preprocess.json')
         logging.info(f'Dumping preprocessors to {transforms_file!r} ...')
         with open(transforms_file, 'w') as f:
-            eval_trans, _ = create_transforms(
+            eval_trans = create_transforms(
                 timm_model=model.module,
                 is_training=False,
                 use_test_size=False,
@@ -119,7 +119,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             )
             logging.info(f'Eval transform:\n{eval_trans}')
 
-            test_trans, _ = create_transforms(
+            test_trans = create_transforms(
                 timm_model=model.module,
                 is_training=False,
                 use_test_size=True,
