@@ -5,10 +5,9 @@ from huggingface_hub.errors import EntryNotFoundError
 
 
 def load_pretrained_tag(repo_id: str) -> str:
-    hf_client = get_hf_client()
     tag = repo_id.split('/')[-1]
     try:
-        with open(hf_client.hf_hub_download(
+        with open(hf_hub_download(
                 repo_id=repo_id,
                 repo_type='dataset',
                 filename='pretrained_tag.json',
