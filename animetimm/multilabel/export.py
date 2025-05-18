@@ -92,8 +92,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
             json.dump(metrics_info, f, sort_keys=True, ensure_ascii=False, indent=4)
 
         df_eval_tags: pd.DataFrame = metrics['df_details']
-        df_tags = df_eval_tags.rename({'mcc': 'val_mcc', 'f1': 'val_f1',
-                                       'precision': 'val_precision', 'recall': 'val_recall'})
+        df_tags = df_eval_tags.rename(columns={'mcc': 'val_mcc', 'f1': 'val_f1',
+                                               'precision': 'val_precision', 'recall': 'val_recall'})
         if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
             df_test_tags = pd.read_csv(os.path.join(workdir, 'test_tags.csv'))
             df_tags['test_mcc'] = df_test_tags['mcc']
