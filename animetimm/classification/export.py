@@ -192,7 +192,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
         with open(os.path.join(upload_dir, 'README.md'), 'w') as f:
             base_model_repo_id = model.src_repo_id
             if base_model_repo_id == repo_id:
-                base_models = hf_client.repo_info(repo_id=repo_id, repo_type='dataset').card_data.get(
+                base_models = hf_client.repo_info(repo_id=repo_id, repo_type='model').card_data.get(
                     'base_model') or []
                 if base_models:
                     base_model_repo_id = base_models[0]
