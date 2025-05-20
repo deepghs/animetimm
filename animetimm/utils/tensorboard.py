@@ -4,7 +4,7 @@ import os
 from tensorboard.backend.event_processing import event_accumulator
 
 
-def is_tensorboard_log_empty(log_file_path):
+def is_tensorboard_has_content(log_file_path):
     if not os.path.exists(log_file_path):
         return False
     if os.path.getsize(log_file_path) == 0:

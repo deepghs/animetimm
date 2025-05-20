@@ -26,7 +26,7 @@ from .test import test
 from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..onnx import export_model_to_onnx
-from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_log_empty
+from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_content
 
 _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P<machine>[^.]+)\.(?P<extra>[\s\S]+)$')
 
@@ -192,7 +192,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
 
         for logfile in glob.glob(os.path.join(workdir, 'events.out.tfevents.*')):
             logging.info(f'Tensorboard file {logfile!r} found.')
-            if is_tensorboard_log_empty(logfile):
+            if not is_tensorboard_has_content(logfile):
                 logging.warning(f'Tensorboard file {logfile!r} is empty, skipped.')
                 continue
 
