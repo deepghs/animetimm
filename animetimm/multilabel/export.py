@@ -40,6 +40,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             test_config_info = json.load(f)
     else:
         test_config_info = {}
+    use_test_size = test_config_info.get('use_test_size', True)
 
     append_tags = list(append_tags or [])
     hf_client = get_hf_client()
@@ -55,6 +56,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
         best_ckpt_zip_file = os.path.join(checkpoints, 'best.zip')
         logging.info(f'Loading model from {best_ckpt_zip_file!r} ...')
         model, meta, metrics = Model.load_from_zip(best_ckpt_zip_file)
+        if not use_test_size:
+            model.pretrained_cfg['test_input_size'] = model.pretrained_cfg['input_size']
 
         model: Model
         pretrained_tag = meta_info['train'].get('pretrained_tag') or load_pretrained_tag(dataset_repo_id)
@@ -138,7 +141,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             test_trans, _ = create_transforms(
                 timm_model=model.module,
                 is_training=False,
-                use_test_size=test_config_info.get('use_test_size', True),
+                use_test_size=use_test_size,
                 noise_level=0,
                 rotation_ratio=0,
                 mixup_alpha=0.0,
