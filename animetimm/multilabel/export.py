@@ -35,8 +35,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
            visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
            logfile_anonymous: bool = True, append_tags: Optional[List[str]] = None,
            title: Optional[str] = None, description: Optional[str] = None):
-    if os.path.exists(os.path.join(workdir, 'test_configs.json')):
-        with open(os.path.join(workdir, 'test_configs.json'), 'r') as f:
+    if os.path.exists(os.path.join(workdir, 'test_options.json')):
+        with open(os.path.join(workdir, 'test_options.json'), 'r') as f:
             test_config_info = json.load(f)
     else:
         test_config_info = {}
