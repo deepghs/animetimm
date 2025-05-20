@@ -437,6 +437,7 @@ def train(
 @click.option('--align-size', '-as', default=512, type=int, help='Align size', show_default=True)
 @click.option('--drop-path-rate', '-dpr', default=0.4, type=float, help='Drop path rate', show_default=True)
 @click.option('--workdir', '-w', default=None, type=str, help='Workdir to save training data', show_default=True)
+@click.option('--suffix', '-sf', 'suffix', default='', type=str, help='Work directory suffix', show_default=True)
 @click.option('--image_key', '-ik', default='webp', type=str, help='Image key in webdataset.', show_default=True)
 @click.option('--model-arg', '-ma', multiple=True, callback=parse_key_value,
               help='Additional model arguments in format KEY=VALUE. Types are auto-detected.\n'
@@ -458,7 +459,7 @@ def train(
 def cli(tag_key, dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
-        drop_path_rate, workdir, model_arg, image_key, filters, cof, grayscale_prob):
+        drop_path_rate, workdir, model_arg, image_key, filters, cof, grayscale_prob, suffix):
     logging.try_init_root(logging.INFO)
 
     rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
@@ -476,7 +477,7 @@ def cli(tag_key, dataset_repo_id, max_epochs, model_name, size, num_workers, bat
     pre_align_mark = f'_p{align_size}' if pre_align else ''
     pretrained_tag = load_pretrained_tag(dataset_repo_id)
     workdir = workdir or f'runs/{rmn}_{pretrained_tag}_bs{batch_size}{pre_align_mark}' \
-                         f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}'
+                         f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}{f"_{suffix}" if suffix else ""}'
     logging.info(f'Training on dataset {dataset_repo_id!r}, workdir: {workdir!r}.')
 
     train(
