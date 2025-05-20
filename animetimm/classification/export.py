@@ -26,7 +26,7 @@ from .test import test
 from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..onnx import export_model_to_onnx
-from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version
+from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_content
 
 _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P<machine>[^.]+)\.(?P<extra>[\s\S]+)$')
 
@@ -35,6 +35,13 @@ def export(workdir: str, repo_id: Optional[str] = None,
            visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
            logfile_anonymous: bool = True, append_tags: Optional[List[str]] = None,
            title: Optional[str] = None, description: Optional[str] = None):
+    if os.path.exists(os.path.join(workdir, 'test_configs.json')):
+        with open(os.path.join(workdir, 'test_configs.json'), 'r') as f:
+            test_config_info = json.load(f)
+    else:
+        test_config_info = {}
+    use_test_size = test_config_info.get('use_test_size', True)
+
     append_tags = list(append_tags or [])
     hf_client = get_hf_client()
     with TemporaryDirectory() as upload_dir:
@@ -49,6 +56,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
         best_ckpt_zip_file = os.path.join(checkpoints, 'best.zip')
         logging.info(f'Loading model from {best_ckpt_zip_file!r} ...')
         model, meta, metrics = Model.load_from_zip(best_ckpt_zip_file)
+        if not use_test_size:
+            model.pretrained_cfg['test_input_size'] = model.pretrained_cfg['input_size']
 
         model: Model
         pretrained_tag = meta_info['train'].get('pretrained_tag') or load_pretrained_tag(dataset_repo_id)
@@ -124,7 +133,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             test_trans = create_transforms(
                 timm_model=model.module,
                 is_training=False,
-                use_test_size=True,
+                use_test_size=use_test_size,
                 noise_level=0,
                 rotation_ratio=0,
                 cutout_patches=0,
@@ -175,6 +184,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
 
         for logfile in glob.glob(os.path.join(workdir, 'events.out.tfevents.*')):
             logging.info(f'Tensorboard file {logfile!r} found.')
+            if not is_tensorboard_has_content(logfile):
+                logging.warning(f'Tensorboard file {logfile!r} is empty, skipped.')
+                continue
+
             matching = _LOG_FILE_PATTERN.fullmatch(os.path.basename(logfile))
             assert matching, f'Log file {logfile!r}\'s name not match with pattern {_LOG_FILE_PATTERN.pattern}.'
 
@@ -299,7 +312,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
 @click.option('--tag', '-t', 'tags', multiple=True, type=str, help='Append tags for repository name', show_default=True)
 @click.option('--title', '-T', default=None, type=str, help='Title for repository', show_default=True)
 @click.option('--description', '-desc', default=None, type=str, help='Description for repository', show_default=True)
-def cli(workdir, num_workers, batch_size, force, need_metrics, repository, visibility, tags, title, description):
+@click.option('--use-test-size/--use-eval-size', 'use_test_size', default=True, help='Use test size for inference',
+              show_default=True)
+def cli(workdir, num_workers, batch_size, force, need_metrics, repository, visibility, tags, title, description,
+        use_test_size):
     logging.try_init_root(logging.INFO)
     if need_metrics:
         test(
@@ -307,6 +323,7 @@ def cli(workdir, num_workers, batch_size, force, need_metrics, repository, visib
             num_workers=num_workers,
             batch_size=batch_size,
             force=force,
+            use_test_size=use_test_size,
         )
 
     export(

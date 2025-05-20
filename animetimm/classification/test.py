@@ -17,7 +17,7 @@ from ..dataset import load_pretrained_tag
 from ..model import Model
 
 
-def test(workdir: str, num_workers: int = 32, batch_size: int = 32, force: bool = False):
+def test(workdir: str, num_workers: int = 32, batch_size: int = 32, force: bool = False, use_test_size: bool = True):
     if os.path.exists(os.path.join(workdir, 'test_tags.csv')) and not force:
         logging.info(f'Already tested for {workdir}, skipped.')
         return
@@ -73,6 +73,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, force: bool 
         image_key=image_key,
         tag_key=tag_key,
         tag_filters=filters,
+        use_test_size_when_test=use_test_size,
     )
 
     module, test_dataloader = accelerator.prepare(module, test_dataloader)
@@ -169,13 +170,16 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, force: bool 
 @click.option('--batch-size', '-bs', default=32, type=int, help='Batch size', show_default=True)
 @click.option('--workdir', '-w', default=None, type=str, help='Workdir to save training data', show_default=True)
 @click.option('--force/--non-force', default=True, help='Force re-calculate.', show_default=True)
-def cli(workdir, num_workers, batch_size, force):
+@click.option('--use-test-size/--use-eval-size', 'use_test_size', default=True, help='Use test size for inference',
+              show_default=True)
+def cli(workdir, num_workers, batch_size, force, use_test_size):
     logging.try_init_root(logging.INFO)
     test(
         workdir=workdir,
         num_workers=num_workers,
         batch_size=batch_size,
         force=force,
+        use_test_size=use_test_size,
     )
 
 

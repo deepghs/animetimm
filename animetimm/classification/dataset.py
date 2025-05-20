@@ -38,12 +38,13 @@ def load_dataloader(repo_id: str, model, tag_key: str, split: Literal['train', '
                     batch_size: int = 256, num_workers: int = 128, noise_level: int = 2,
                     rotation_ratio: float = 0.25, cutout_max_pct: float = 0.25, cutout_patches: int = 1,
                     random_resize_method: bool = True, pre_align: bool = True, align_size: int = 512,
-                    is_main_process: bool = True, image_key: str = 'webp', tag_filters: Optional[dict] = None, ):
+                    is_main_process: bool = True, image_key: str = 'webp', tag_filters: Optional[dict] = None,
+                    use_test_size_when_test: bool = True):
     from .augmentation import create_transforms
     trans = create_transforms(
         timm_model=model,
         is_training=split == 'train',
-        use_test_size=split == 'test',
+        use_test_size=use_test_size_when_test and (split == 'test'),
         noise_level=noise_level if split == 'train' else 0,
         rotation_ratio=rotation_ratio,
         cutout_max_pct=cutout_max_pct,
