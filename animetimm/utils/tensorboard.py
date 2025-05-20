@@ -20,12 +20,11 @@ def is_tensorboard_log_empty(log_file_path):
                 len(ea.Tags().get('histograms', [])) > 0 or
                 len(ea.Tags().get('audio', [])) > 0 or
                 len(ea.Tags().get('tensors', [])) > 0 or
-                len(ea.Tags().get('graph', False)) > 0
+                ea.Tags().get('graph', False)
         )
 
         return has_content
 
     except Exception as e:
         logging.exception(f'Error occurred when analysising tensorboard file {log_file_path}.')
-        print(f"解析文件时出错: {e}")
         return False
