@@ -26,7 +26,8 @@ from .test import test
 from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..onnx import export_model_to_onnx
-from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_content
+from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_content, \
+    VALID_LICENCES
 
 _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P<machine>[^.]+)\.(?P<extra>[\s\S]+)$')
 
@@ -34,7 +35,7 @@ _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P
 def export(workdir: str, repo_id: Optional[str] = None,
            visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
            logfile_anonymous: bool = True, append_tags: Optional[List[str]] = None,
-           title: Optional[str] = None, description: Optional[str] = None):
+           title: Optional[str] = None, description: Optional[str] = None, license: str = 'mit'):
     if os.path.exists(os.path.join(workdir, 'test_options.json')):
         with open(os.path.join(workdir, 'test_options.json'), 'r') as f:
             test_config_info = json.load(f)
@@ -58,7 +59,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
         model, meta, metrics = Model.load_from_zip(best_ckpt_zip_file)
         if not use_test_size:
             model.pretrained_cfg['test_input_size'] = model.pretrained_cfg['input_size']
-            model.module.pretrained_cfg.update(model.pretrained_cfg)
+        model.pretrained_cfg['license'] = license
+        model.module.pretrained_cfg.update(model.pretrained_cfg)
 
         model: Model
         pretrained_tag = meta_info['train'].get('pretrained_tag') or load_pretrained_tag(dataset_repo_id)
@@ -219,7 +221,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'- animetimm', file=f)
             print(f'- dghs-imgutils', file=f)
             print(f'library_name: timm', file=f)
-            print(f'license: gpl-3.0', file=f)
+            print(f'license: {license}', file=f)
             print(f'datasets:', file=f)
             print(f'- {dataset_repo_id}', file=f)
             print(f'base_model:', file=f)
@@ -315,8 +317,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
 @click.option('--description', '-desc', default=None, type=str, help='Description for repository', show_default=True)
 @click.option('--use-test-size/--use-eval-size', 'use_test_size', default=True, help='Use test size for inference',
               show_default=True)
+@click.option('-l', '--licence', '--license', 'license', type=click.Choice(VALID_LICENCES), default='mit',
+              help='Licence for repository.', show_default=True)
 def cli(workdir, num_workers, batch_size, force, need_metrics, repository, visibility, tags, title, description,
-        use_test_size):
+        use_test_size, license):
     logging.try_init_root(logging.INFO)
     if need_metrics:
         test(
@@ -335,6 +339,7 @@ def cli(workdir, num_workers, batch_size, force, need_metrics, repository, visib
         append_tags=tags,
         title=title,
         description=description,
+        license=license,
     )
 
 
