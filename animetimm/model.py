@@ -102,7 +102,8 @@ class Model:
                 model = _timm_create_model(model_name=model_name, pretrained=pretrained, **_model_args)
             else:
                 raise
-        model.reset_classifier(len(tags))
+        if model.num_classes != len(tags):
+            model.reset_classifier(len(tags))
         model.pretrained_cfg.update(pretrained_cfg)
 
         return cls(
@@ -260,6 +261,8 @@ if __name__ == '__main__':
         model_args=dict(drop_path_rate=0.4),
     )
     m.module.eval()
+
+    # quit()
     # print(m)
     print(m.pretrained_tag)
     m.pretrained_tag = 'shit'
