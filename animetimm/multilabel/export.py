@@ -194,11 +194,11 @@ def export(workdir: str, repo_id: Optional[str] = None,
         )
 
         for logfile in glob.glob(os.path.join(workdir, 'events.out.tfevents.*')):
-            logging.info(f'Tensorboard file {logfile!r} found.')
             if not is_tensorboard_has_content(logfile):
                 logging.warning(f'Tensorboard file {logfile!r} is empty, skipped.')
                 continue
 
+            logging.info(f'Tensorboard file {logfile!r} found.')
             matching = _LOG_FILE_PATTERN.fullmatch(os.path.basename(logfile))
             assert matching, f'Log file {logfile!r}\'s name not match with pattern {_LOG_FILE_PATTERN.pattern}.'
 
