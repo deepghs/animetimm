@@ -35,6 +35,12 @@ def export(workdir: str, repo_id: Optional[str] = None,
            visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
            logfile_anonymous: bool = True, append_tags: Optional[List[str]] = None,
            title: Optional[str] = None, description: Optional[str] = None):
+    if os.path.exists(os.path.join(workdir, 'test_configs.json')):
+        with open(os.path.join(workdir, 'test_configs.json'), 'r') as f:
+            test_config_info = json.load(f)
+    else:
+        test_config_info = {}
+
     append_tags = list(append_tags or [])
     hf_client = get_hf_client()
     with TemporaryDirectory() as upload_dir:
@@ -132,7 +138,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             test_trans, _ = create_transforms(
                 timm_model=model.module,
                 is_training=False,
-                use_test_size=True,
+                use_test_size=test_config_info.get('use_test_size', True),
                 noise_level=0,
                 rotation_ratio=0,
                 mixup_alpha=0.0,
@@ -340,8 +346,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
 @click.option('--tag', '-t', 'tags', multiple=True, type=str, help='Append tags for repository name', show_default=True)
 @click.option('--title', '-T', default=None, type=str, help='Title for repository', show_default=True)
 @click.option('--description', '-desc', default=None, type=str, help='Description for repository', show_default=True)
+@click.option('--use-test-size/--use-eval-size', 'use_test_size', default=True, help='Use test size for inference',
+              show_default=True)
 def cli(workdir, num_workers, batch_size, test_threshold, tag_categories, seen_tag_keys, force, need_metrics,
-        repository, visibility, tags, title, description):
+        repository, visibility, tags, title, description, use_test_size):
     logging.try_init_root(logging.INFO)
     if need_metrics:
         tag_categories_seq = list(tag_categories) if tag_categories else None
@@ -354,6 +362,7 @@ def cli(workdir, num_workers, batch_size, test_threshold, tag_categories, seen_t
             tag_categories=tag_categories_seq,
             seen_tag_keys=seen_tag_keys_list,
             force=force,
+            use_test_size=use_test_size,
         )
 
     export(

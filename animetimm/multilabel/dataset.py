@@ -51,13 +51,13 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
                     rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
                     cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
                     pre_align: bool = True, align_size: int = 512, is_main_process: bool = True,
-                    image_key: str = 'webp',
+                    image_key: str = 'webp', use_test_size_when_test: bool = True,
                     categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None):
     from .augmentation import create_transforms
     trans, post_trans = create_transforms(
         timm_model=model,
         is_training=split == 'train',
-        use_test_size=split == 'test',
+        use_test_size=use_test_size_when_test and (split == 'test'),
         noise_level=noise_level if split == 'train' else 0,
         rotation_ratio=rotation_ratio,
         mixup_alpha=mixup_alpha,
