@@ -58,6 +58,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
         model, meta, metrics = Model.load_from_zip(best_ckpt_zip_file)
         if not use_test_size:
             model.pretrained_cfg['test_input_size'] = model.pretrained_cfg['input_size']
+            model.module.pretrained_cfg.update(model.pretrained_cfg)
 
         model: Model
         pretrained_tag = meta_info['train'].get('pretrained_tag') or load_pretrained_tag(dataset_repo_id)
