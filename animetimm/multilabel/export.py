@@ -13,7 +13,7 @@ import pandas as pd
 from PIL import Image
 from ditk import logging
 from hbutils.encoding import sha3
-from hfutils.operate import get_hf_client, upload_directory_as_directory
+from hfutils.operate import get_hf_client, upload_directory_as_directory, download_file_to_file
 from hfutils.repository import hf_hub_repo_url
 from huggingface_hub import hf_hub_url
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
@@ -213,6 +213,16 @@ def export(workdir: str, repo_id: Optional[str] = None,
             logging.info(f'Adding log file {logfile!r} to {dst_log_file!r} ...')
             shutil.copyfile(logfile, dst_log_file)
 
+        categories_file = os.path.join(upload_dir, 'categories.json')
+        download_file_to_file(
+            repo_id=dataset_repo_id,
+            repo_type='dataset',
+            file_in_repo='categories.json',
+            local_file=categories_file,
+        )
+        with open(categories_file, 'r') as f:
+            d_category_names = {cate_item['category']: cate_item['name'] for cate_item in json.load(f)}
+
         with open(os.path.join(upload_dir, 'README.md'), 'w') as f:
             base_model_repo_id = model.src_repo_id
             if base_model_repo_id == repo_id:
@@ -254,7 +264,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'  - Image size: train = {dummy_input_val.shape[-1]} x {dummy_input_val.shape[-2]}, '
                   f'test = {dummy_input_test.shape[-1]} x {dummy_input_test.shape[-2]}', file=f)
             print(f'- **Dataset:** [{dataset_repo_id}]'
-                  f'({hf_hub_repo_url(repo_id=dataset_repo_id, repo_type="dataset", endpoint="https://huggingface.co")})', file=f)
+                  f'({hf_hub_repo_url(repo_id=dataset_repo_id, repo_type="dataset", endpoint="https://huggingface.co")})',
+                  file=f)
             print(f'  - Tags Count: {len(df_tags)}', file=f)
             print(f'', file=f)
 
@@ -305,6 +316,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 for item in (category_thresholds or []):
                     t_records.append({
                         'category': item['category'],
+                        'name': d_category_names[item['category']],
                         'alpha': item.get('alpha', 1.0),
                         'threshold': item['best_threshold'],
                         'f1': item['best_f1'],
@@ -313,6 +325,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                     })
                     ts_records.append({
                         'Category': item['category'],
+                        'Name': d_category_names[item['category']],
                         'Alpha': '%.2f' % item.get('alpha', 1.0),
                         'Threshold': '%.3f' % item['best_threshold'],
                         'Micro (F1/P/R)': '%.3f / %.3f / %.3f' % (
