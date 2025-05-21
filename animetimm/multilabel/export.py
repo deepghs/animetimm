@@ -254,7 +254,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'  - Image size: train = {dummy_input_val.shape[-1]} x {dummy_input_val.shape[-2]}, '
                   f'test = {dummy_input_test.shape[-1]} x {dummy_input_test.shape[-2]}', file=f)
             print(f'- **Dataset:** [{dataset_repo_id}]'
-                  f'({hf_hub_repo_url(repo_id=dataset_repo_id, repo_type="dataset", endpoint="https://huggingface.co/")})', file=f)
+                  f'({hf_hub_repo_url(repo_id=dataset_repo_id, repo_type="dataset", endpoint="https://huggingface.co")})', file=f)
             print(f'  - Tags Count: {len(df_tags)}', file=f)
             print(f'', file=f)
 
