@@ -13,7 +13,7 @@ import pandas as pd
 from PIL import Image
 from ditk import logging
 from hbutils.encoding import sha3
-from hfutils.operate import get_hf_client, upload_directory_as_directory, download_file_to_file
+from hfutils.operate import get_hf_client, upload_directory_as_directory
 from hfutils.repository import hf_hub_repo_url
 from huggingface_hub import hf_hub_url
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
@@ -213,14 +213,11 @@ def export(workdir: str, repo_id: Optional[str] = None,
             logging.info(f'Adding log file {logfile!r} to {dst_log_file!r} ...')
             shutil.copyfile(logfile, dst_log_file)
 
-        categories_file = os.path.join(upload_dir, 'categories.json')
-        download_file_to_file(
-            repo_id=dataset_repo_id,
-            repo_type='dataset',
-            file_in_repo='categories.json',
-            local_file=categories_file,
-        )
-        with open(categories_file, 'r') as f:
+        with open(hf_client.hf_hub_download(
+                repo_id=dataset_repo_id,
+                repo_type='dataset',
+                filename='categories.json',
+        ), 'r') as f:
             d_category_names = {cate_item['category']: cate_item['name'] for cate_item in json.load(f)}
 
         with open(os.path.join(upload_dir, 'README.md'), 'w') as f:
@@ -313,6 +310,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 threshold_file = os.path.join(upload_dir, 'thresholds.csv')
                 logging.info(f'Saving threshold file {threshold_file!r} ...')
                 t_records, ts_records = [], []
+                categories = []
                 for item in (category_thresholds or []):
                     t_records.append({
                         'category': item['category'],
@@ -334,12 +332,20 @@ def export(workdir: str, repo_id: Optional[str] = None,
                             item['best_recall'],
                         )
                     })
+                    categories.append({
+                        'category': item['category'],
+                        'name': d_category_names[item['category']],
+                    })
                 pd.DataFrame(t_records).to_csv(threshold_file, index=False)
                 print(pd.DataFrame(ts_records).to_markdown(index=False), file=f)
                 print(f'', file=f)
                 print(f'For tag-level thresholds, you can find them in [selected_tags.csv]'
                       f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv")}).', file=f)
                 print(f'', file=f)
+
+        categories_file = os.path.join(upload_dir, 'categories.json')
+        with open(categories_file, 'w') as f:
+            json.dump(categories, f, sort_keys=True, indent=4, ensure_ascii=False)
 
         upload_directory_as_directory(
             repo_id=repo_id,
