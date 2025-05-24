@@ -243,12 +243,9 @@ def train(
         macro_tn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
         macro_fn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
 
-        for i, (inputs, labels_) in enumerate(tqdm(train_dataloader, disable=not accelerator.is_main_process)):
+        for i, (inputs, labels_) in enumerate(tqdm(train_dataloader[:10], disable=not accelerator.is_main_process)):
             inputs = inputs.float()
             labels_ = labels_
-
-            print(inputs.shape, labels_.shape)
-            quit()
 
             optimizer.zero_grad()
             outputs = module(inputs)
@@ -451,7 +448,7 @@ def train(
 @click.option('--eval-threshold', '-et', default=0.4, type=float, help='Evaluation threshold', show_default=True)
 @click.option('--noise-level', '-nl', default=2, type=int, help='Noise level', show_default=True)
 @click.option('--rotation-ratio', '-rr', default=0.0, type=float, help='Rotation ratio', show_default=True)
-@click.option('--mixup-alpha', '-ma', default=0.6, type=float, help='Mixup alpha', show_default=True)
+@click.option('--mixup-alpha', default=0.6, type=float, help='Mixup alpha', show_default=True)
 @click.option('--cutout-max-pct', '-cmp', default=0.0, type=float, help='Cutout max percentage', show_default=True)
 @click.option('--cutout-patches', '-cp', default=0, type=int, help='Cutout patches', show_default=True)
 @click.option('--random-resize-method/--no-random-resize-method', default=True, help='Random resize method',
