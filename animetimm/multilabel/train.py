@@ -243,7 +243,9 @@ def train(
         macro_tn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
         macro_fn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
 
-        for i, (inputs, labels_) in enumerate(tqdm(train_dataloader[:10], disable=not accelerator.is_main_process)):
+        x = 0
+
+        for i, (inputs, labels_) in enumerate(tqdm(train_dataloader, disable=not accelerator.is_main_process)):
             inputs = inputs.float()
             labels_ = labels_
 
@@ -269,6 +271,10 @@ def train(
             optimizer.step()
             train_loss += loss.item() * inputs.size(0)
             scheduler.step()
+
+            x +=1
+            if x >= 10:
+                break
 
         accelerator.wait_for_everyone()
 
