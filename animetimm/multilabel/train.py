@@ -243,7 +243,8 @@ def train(
         macro_tn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
         macro_fn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
 
-        for i, (inputs, labels_) in enumerate(tqdm(train_dataloader, disable=not accelerator.is_main_process)):
+        for i, (inputs, labels_) in enumerate(tqdm(train_dataloader, disable=not accelerator.is_local_main_process,
+                                                   desc=f'Train on Rank #{accelerator.process_index}')):
             inputs = inputs.float()
             labels_ = labels_
 
@@ -346,7 +347,9 @@ def train(
                 macro_tn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
                 macro_fn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
 
-                for i, (inputs, labels_) in enumerate(tqdm(eval_dataloader, disable=not accelerator.is_main_process)):
+                for i, (inputs, labels_) in enumerate(
+                        tqdm(eval_dataloader, disable=not accelerator.is_local_main_process,
+                             desc=f'Eval on Rank #{accelerator.process_index}')):
                     inputs = inputs.float()
                     labels_ = labels_
 
