@@ -7,6 +7,7 @@ import torch
 from datasets import load_dataset as _timm_load_dataset
 from ditk import logging
 from huggingface_hub import hf_hub_download
+from imgutils.data import load_image
 from torch.utils.data import DataLoader
 
 
@@ -19,6 +20,7 @@ def load_dataset(repo_id: str, tag_key: str, tag_filters: Optional[dict] = None,
     def _trans(row):
         images = []
         for image in row[image_key]:
+            image = load_image(image, force_background='white', mode='RGB')
             if transforms:
                 image = transforms(image)
             images.append(image)
