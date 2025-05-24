@@ -247,6 +247,9 @@ def train(
             inputs = inputs.float()
             labels_ = labels_
 
+            print(inputs.shape, labels_.shape)
+            quit()
+
             optimizer.zero_grad()
             outputs = module(inputs)
             train_total += labels_.shape[0]
