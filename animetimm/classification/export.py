@@ -107,7 +107,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
         df_eval_tags: pd.DataFrame = metrics['df_details']
         df_tags = df_eval_tags.rename(columns={'f1': 'val_f1', 'precision': 'val_precision', 'recall': 'val_recall'})
         if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
-            df_test_tags = pd.read_csv(os.path.join(workdir, 'test_tags.csv'))
+            df_test_tags = pd.read_csv(os.path.join(workdir, 'test_tags.csv'), keep_default_na=False)
             df_tags['test_f1'] = df_test_tags['f1']
             df_tags['test_precision'] = df_test_tags['precision']
             df_tags['test_recall'] = df_test_tags['recall']

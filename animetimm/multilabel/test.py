@@ -42,7 +42,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
 
     tags_info = load_tags(repo_id=dataset_repo_id, categories=tag_categories)
     if os.path.exists(os.path.join(workdir, 'tags.csv')):
-        df_expected_tags = pd.read_csv(os.path.join(workdir, 'tags.csv'))
+        df_expected_tags = pd.read_csv(os.path.join(workdir, 'tags.csv'), keep_default_na=False)
         if len(tags_info.df) != len(df_expected_tags):
             raise RuntimeError('Tag list length not match, '
                                f'{len(df_expected_tags)!r} expected but {len(tags_info.df)!r} found.')
