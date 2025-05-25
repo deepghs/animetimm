@@ -46,7 +46,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             raise RuntimeError('Tag list length not match, '
                                f'{len(df_expected_tags)!r} expected but {len(tags_info.df)!r} found.')
         elif list(tags_info.df['name']) != list(df_expected_tags['name']):
-            for i, (ls_tag, tag) in zip(tags_info.df['name'], df_expected_tags['name']):
+            for i, (ls_tag, tag) in enumerate(zip(tags_info.df['name'], df_expected_tags['name'])):
                 if ls_tag != tag:
                     raise RuntimeError(f'Tag list not match on #{i}, {ls_tag!r} vs {tag!r}.')
 
