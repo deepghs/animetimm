@@ -37,6 +37,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
     image_key = meta_info['train'].get('image_key') or 'webp'
     tag_categories = tag_categories or meta_info['train'].get('tag_categories')
     seen_tag_keys = seen_tag_keys or meta_info['train'].get('seem_tag_keys') or meta_info['train'].get('seen_tag_keys')
+    logging.info(f'Tags categories: {tag_categories!r}, seen tag keys: {seen_tag_keys!r}')
 
     tags_info = load_tags(repo_id=dataset_repo_id, categories=tag_categories)
     if os.path.exists(os.path.join(workdir, 'tags.csv')):
@@ -45,7 +46,9 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             raise RuntimeError('Tag list length not match, '
                                f'{len(df_expected_tags)!r} expected but {len(tags_info.df)!r} found.')
         elif list(tags_info.df['name']) != list(df_expected_tags['name']):
-            raise RuntimeError('Tag list not match.')
+            for i, (ls_tag, tag) in zip(tags_info.df['name'], df_expected_tags['name']):
+                if ls_tag != tag:
+                    raise RuntimeError(f'Tag list not match on #{i}, {ls_tag!r} vs {tag!r}.')
 
     accelerator.wait_for_everyone()
 
