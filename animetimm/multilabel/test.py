@@ -55,7 +55,6 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
                     if err_cnt >= 10:
                         raise RuntimeError('Too many tags not match.')
 
-
     accelerator.wait_for_everyone()
 
     tags_info.df.to_csv(os.path.join(workdir, 'tags.csv'), index=False)
