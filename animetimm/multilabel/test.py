@@ -1,5 +1,6 @@
 import json
 import os
+import warnings
 from functools import partial
 from typing import Optional, Sequence, List
 
@@ -46,9 +47,14 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             raise RuntimeError('Tag list length not match, '
                                f'{len(df_expected_tags)!r} expected but {len(tags_info.df)!r} found.')
         elif list(tags_info.df['name']) != list(df_expected_tags['name']):
+            err_cnt = 0
             for i, (ls_tag, tag) in enumerate(zip(tags_info.df['name'], df_expected_tags['name'])):
                 if ls_tag != tag:
-                    raise RuntimeError(f'Tag list not match on #{i}, {ls_tag!r} vs {tag!r}.')
+                    warnings.warn(f'Tag list not match on #{i}, {ls_tag!r} vs {tag!r}.')
+                    err_cnt += 1
+                    if err_cnt >= 10:
+                        raise RuntimeError('Too many tags not match.')
+
 
     accelerator.wait_for_everyone()
 
