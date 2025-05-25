@@ -71,7 +71,8 @@ def train(
     os.makedirs(workdir, exist_ok=True)
 
     tags_info = load_tags(repo_id=dataset_repo_id, categories=tag_categories)
-    tags_info.df.to_csv(os.path.join(workdir, 'tags.csv'), index=False)
+    if accelerator.is_main_process:
+        tags_info.df.to_csv(os.path.join(workdir, 'tags.csv'), index=False)
     checkpoints = os.path.join(workdir, 'checkpoints')
     last_ckpt_zip_file = os.path.join(checkpoints, 'last.zip')
     model_args = dict(model_args or {})
