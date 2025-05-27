@@ -226,6 +226,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             with open(os.path.join(workdir, 'test_options.json'), 'w') as f:
                 json.dump({
                     'use_test_size': use_test_size,
+                    'test_threshold': test_threshold,
                 }, f, ensure_ascii=False, sort_keys=True, indent=4)
 
 

@@ -13,6 +13,7 @@ import pandas as pd
 from PIL import Image
 from ditk import logging
 from hbutils.encoding import sha3
+from hbutils.string import titleize
 from hfutils.operate import get_hf_client, upload_directory_as_directory
 from hfutils.repository import hf_hub_repo_url
 from huggingface_hub import hf_hub_url
@@ -265,19 +266,23 @@ def export(workdir: str, repo_id: Optional[str] = None,
                   f'({hf_hub_repo_url(repo_id=dataset_repo_id, repo_type="dataset", endpoint="https://huggingface.co")})',
                   file=f)
             print(f'  - Tags Count: {len(df_tags)}', file=f)
+            for category in sorted(set(df_tags['category'])):
+                print(f'    - {titleize(d_category_names[category])} (#{category}) Tags Count: '
+                      f'{len(df_tags[df_tags["category"] == category])}', file=f)
             print(f'', file=f)
 
             print(f'## Results', file=f)
             print(f'', file=f)
+            eval_threshold = meta_info['train'].get('eval_threshold', 0.4)
             s_records = [{
                 '#': 'Validation',
-                'Macro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                f'Macro@{eval_threshold:.2f} (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
                     metrics_info['val']['macro_f1'],
                     metrics_info['val']['macro_mcc'],
                     metrics_info['val']['macro_precision'],
                     metrics_info['val']['macro_recall']
                 ),
-                'Micro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                f'Micro@{eval_threshold:.2f} (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
                     metrics_info['val']['micro_f1'],
                     metrics_info['val']['micro_mcc'],
                     metrics_info['val']['micro_precision'],
@@ -285,15 +290,16 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 ),
             }]
             if 'test' in metrics_info:
+                test_threshold = metrics_info.get('test_threshold', 0.4)
                 s_records.append({
                     '#': 'Test',
-                    'Macro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                    f'Macro@{test_threshold:.2f} (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
                         metrics_info['test']['macro_f1'],
                         metrics_info['test']['macro_mcc'],
                         metrics_info['test']['macro_precision'],
                         metrics_info['test']['macro_recall'],
                     ),
-                    'Micro (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                    f'Micro@{test_threshold:.2f} (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
                         metrics_info['test']['micro_f1'],
                         metrics_info['test']['micro_mcc'],
                         metrics_info['test']['micro_precision'],
