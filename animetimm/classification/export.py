@@ -26,7 +26,7 @@ from .test import test
 from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..onnx import export_model_to_onnx
-from ..utils import torch_model_profile, GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_content, \
+from ..utils import torch_model_profile_via_thop, GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_content, \
     VALID_LICENCES
 
 _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P<machine>[^.]+)\.(?P<extra>[\s\S]+)$')
@@ -166,7 +166,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
         dummy_input_val = eval_trans(image).unsqueeze(0)
         logging.info(f'Dummy input for model: {dummy_input_test.shape!r}')
 
-        flops, params = torch_model_profile(model=model.module, input_=dummy_input_test)
+        flops, params = torch_model_profile_via_thop(model=model.module, input_=dummy_input_test)
         meta_info['flops'] = flops
         meta_info['params'] = params
         new_meta_file = os.path.join(upload_dir, 'meta.json')

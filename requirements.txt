@@ -23,3 +23,5 @@ onnxsim
 onnxruntime
 thop
 tabulate
+calflops
+transformers
