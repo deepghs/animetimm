@@ -332,7 +332,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                       f'and {test_threshold:.2f} (test).', file=f)
             if 'test' in metrics_info and os.path.exists(os.path.join(workdir, 'test_tags.csv')):
                 print('* Macro@Best means the mean metrics on the tag-level thresholds on each tags, '
-                      'which should have the best F1 score.', file=f)
+                      'which should have the best F1 scores.', file=f)
             print(f'', file=f)
 
             if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
