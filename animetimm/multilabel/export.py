@@ -313,15 +313,14 @@ def export(workdir: str, repo_id: Optional[str] = None,
                                 df_tags['best_precision'].mean(),
                                 df_tags['best_recall'].mean(),
                             ),
-                        }
-                        if os.path.exists(os.path.join(workdir, 'test_tags.csv')) else {}
+                        } if os.path.exists(os.path.join(workdir, 'test_tags.csv')) else {}
                     )
                 })
             else:
                 test_threshold = None
             df_s = pd.DataFrame(s_records)
             df_s = df_s.replace(np.nan, '---')
-            print(df_s.to_markdown(index=False), file=f)
+            print(df_s.to_markdown(index=False, stralign='center', numalign='center'), file=f)
             print(f'', file=f)
             if test_threshold is None or abs(eval_threshold - test_threshold) < 1e-4:
                 print(f'* `Macro/Micro@{eval_threshold:.2f}` means the metrics '
@@ -331,7 +330,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                       f'means the metrics on the threshold {eval_threshold:.2f} (validation) '
                       f'and {test_threshold:.2f} (test).', file=f)
             if 'test' in metrics_info and os.path.exists(os.path.join(workdir, 'test_tags.csv')):
-                print('* Macro@Best means the mean metrics on the tag-level thresholds on each tags, '
+                print('* `Macro@Best` means the mean metrics on the tag-level thresholds on each tags, '
                       'which should have the best F1 scores.', file=f)
             print(f'', file=f)
 
@@ -362,6 +361,15 @@ def export(workdir: str, repo_id: Optional[str] = None,
                             item['best_f1'],
                             item['best_precision'],
                             item['best_recall'],
+                        ),
+                        **(
+                            {
+                                'Macro@Best (F1/P/R)': '%.3f / %.3f / %.3f' % (
+                                    df_tags[df_tags['category'] == item['category']]['best_f1'].mean(),
+                                    df_tags[df_tags['category'] == item['category']]['best_precision'].mean(),
+                                    df_tags[df_tags['category'] == item['category']]['best_recall'].mean(),
+                                ),
+                            }if os.path.exists(os.path.join(workdir, 'test_tags.csv')) else {}
                         )
                     })
                     categories.append({
@@ -369,7 +377,13 @@ def export(workdir: str, repo_id: Optional[str] = None,
                         'name': d_category_names[item['category']],
                     })
                 pd.DataFrame(t_records).to_csv(threshold_file, index=False)
-                print(pd.DataFrame(ts_records).to_markdown(index=False), file=f)
+                print(pd.DataFrame(ts_records).to_markdown(index=False, stralign='center', numalign='center'), file=f)
+                print(f'', file=f)
+                print(f'* `Micro@Thr` means the metrics on the category-level suggested thresholds, '
+                      f'which are listed in the table above.', file=f)
+                if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
+                    print(f'* `Macro@Best` means the metrics on the tag-level thresholds on each tags, '
+                      'which should have the best F1 scores.', file=f)
                 print(f'', file=f)
                 print(f'For tag-level thresholds, you can find them in [selected_tags.csv]'
                       f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv", endpoint="https://huggingface.co")}).',
