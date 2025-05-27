@@ -26,8 +26,8 @@ from .test import test
 from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..onnx import export_model_to_onnx
-from ..utils import torch_model_profile_via_thop, GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_content, \
-    VALID_LICENCES
+from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_content, \
+    VALID_LICENCES, torch_model_profile_via_calflops
 
 _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P<machine>[^.]+)\.(?P<extra>[\s\S]+)$')
 
@@ -174,9 +174,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
         dummy_input_val = eval_trans(image).unsqueeze(0)
         logging.info(f'Dummy input for model: {dummy_input_test.shape!r}')
 
-        flops, params = torch_model_profile_via_thop(model=model.module, input_=dummy_input_test)
+        flops, params, macs = torch_model_profile_via_calflops(model=model.module, input_=dummy_input_test)
         meta_info['flops'] = flops
         meta_info['params'] = params
+        meta_info['macs'] = macs
         new_meta_file = os.path.join(upload_dir, 'meta.json')
         logging.info(f'Saving metadata to {new_meta_file!r} ...')
         with open(new_meta_file, 'w') as f:
@@ -251,13 +252,13 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 print(f'{description}', file=f)
                 print(f'', file=f)
 
-            s_flops, s_params = clever_format([flops, params], "%.1f")
+            s_flops, s_params, s_macs = clever_format([flops, params, macs], "%.1f")
             print(f'## Model Details', file=f)
             print(f'', file=f)
             print(f'- **Model Type:** Multilabel Image classification / feature backbone', file=f)
             print(f'- **Model Stats:**', file=f)
             print(f'  - Params: {s_params}', file=f)
-            print(f'  - FLOPs: {s_flops}', file=f)
+            print(f'  - FLOPs / MACs: {s_flops} / {s_macs}', file=f)
             print(f'  - Image size: train = {dummy_input_val.shape[-1]} x {dummy_input_val.shape[-2]}, '
                   f'test = {dummy_input_test.shape[-1]} x {dummy_input_test.shape[-2]}', file=f)
             print(f'- **Dataset:** [{dataset_repo_id}]'
@@ -340,7 +341,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 print(pd.DataFrame(ts_records).to_markdown(index=False), file=f)
                 print(f'', file=f)
                 print(f'For tag-level thresholds, you can find them in [selected_tags.csv]'
-                      f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv", endpoint="https://huggingface.co")}).', file=f)
+                      f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv", endpoint="https://huggingface.co")}).',
+                      file=f)
                 print(f'', file=f)
 
         categories_file = os.path.join(upload_dir, 'categories.json')
