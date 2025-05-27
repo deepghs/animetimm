@@ -342,6 +342,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 logging.info(f'Saving threshold file {threshold_file!r} ...')
                 t_records, ts_records = [], []
                 categories = []
+                test_threshold = metrics_info.get('test_threshold', 0.4)
                 for item in (category_thresholds or []):
                     t_records.append({
                         'category': item['category'],
@@ -362,6 +363,12 @@ def export(workdir: str, repo_id: Optional[str] = None,
                             item['best_precision'],
                             item['best_recall'],
                         ),
+                        f'Macro@{test_threshold:.2f} (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                            df_tags[df_tags['category'] == item['category']]['test_f1'].mean(),
+                            df_tags[df_tags['category'] == item['category']]['test_mcc'].mean(),
+                            df_tags[df_tags['category'] == item['category']]['test_precision'].mean(),
+                            df_tags[df_tags['category'] == item['category']]['test_recall'].mean(),
+                        ),
                         **(
                             {
                                 'Macro@Best (F1/P/R)': '%.3f / %.3f / %.3f' % (
@@ -381,6 +388,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 print(f'', file=f)
                 print(f'* `Micro@Thr` means the metrics on the category-level suggested thresholds, '
                       f'which are listed in the table above.', file=f)
+                print(f'* `Macro@{test_threshold:.2f}` means the metrics '
+                      f'on the threshold {test_threshold:.2f}.', file=f)
                 if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
                     print(f'* `Macro@Best` means the metrics on the tag-level thresholds on each tags, '
                           'which should have the best F1 scores.', file=f)
