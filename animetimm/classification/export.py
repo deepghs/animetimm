@@ -286,7 +286,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                     )
                 })
             df_s = pd.DataFrame(s_records)
-            print(df_s.to_markdown(index=False), file=f)
+            print(df_s.to_markdown(index=False, stralign='center', numalign='center'), file=f)
             print(f'', file=f)
             print(f'You can find label list in [selected_tags.csv]'
                   f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv", endpoint="https://huggingface.co")}).',
