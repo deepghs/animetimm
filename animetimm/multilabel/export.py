@@ -310,8 +310,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                         {
                             'Macro@Best (F1/P/R)': '%.3f / %.3f / %.3f' % (
                                 df_tags['best_f1'].mean(),
-                                df_tags['best_precision']['best_precision'],
-                                df_tags['best_recall']['best_recall'],
+                                df_tags['best_precision'].mean(),
+                                df_tags['best_recall'].mean(),
                             ),
                         }
                         if os.path.exists(os.path.join(workdir, 'test_tags.csv')) else {}
