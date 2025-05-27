@@ -51,6 +51,7 @@ def train(
         tag_categories: Optional[Sequence[int]] = None,
         seen_tag_keys: Optional[List[str]] = None,
         image_key: str = 'webp',
+        use_pretrained_weight: bool = True,
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -108,7 +109,7 @@ def train(
         model = Model.new(
             model_name=timm_model_name,
             tags=tags_info.tags,
-            pretrained=True,
+            pretrained=use_pretrained_weight,
             pretrained_cfg=pretrained_cfg,
             model_args=model_args,
         )
@@ -142,6 +143,7 @@ def train(
         'tag_categories': tag_categories,
         'seen_tag_keys': seen_tag_keys,
         'image_key': image_key,
+        'use_pretrained_weight': use_pretrained_weight,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -459,6 +461,9 @@ def train(
               show_default=True)
 @click.option('--pre-align/--no-pre-align', default=True, help='Pre-align', show_default=True)
 @click.option('--align-size', '-as', default=512, type=int, help='Align size', show_default=True)
+@click.option('--use-pretrained/--no-pretrained', 'use_pretrained_weight', default=True,
+              help='Use pretrained weights. Disable pretrained weights when you '
+                   'have to change some architectures', show_default=True)
 @click.option('--tag-categories', '-tc', multiple=True, type=int, help='Tag categories (multiple)', show_default=True)
 @click.option('--seen-tag-keys', '-stk', multiple=True, help='Seen tag keys (multiple)', show_default=True)
 @click.option('--drop-path-rate', '-dpr', default=0.4, type=float, help='Drop path rate', show_default=True)
@@ -479,7 +484,7 @@ def train(
 def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio, mixup_alpha,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
-        tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg, image_key, suffix):
+        tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg, image_key, suffix, use_pretrained_weight):
     logging.try_init_root(logging.INFO)
 
     rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
@@ -528,6 +533,7 @@ def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, 
         seen_tag_keys=seen_tag_keys_list,
         max_epochs=max_epochs,
         image_key=image_key,
+        use_pretrained_weight=use_pretrained_weight,
     )
 
 
