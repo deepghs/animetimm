@@ -369,7 +369,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                                     df_tags[df_tags['category'] == item['category']]['best_precision'].mean(),
                                     df_tags[df_tags['category'] == item['category']]['best_recall'].mean(),
                                 ),
-                            }if os.path.exists(os.path.join(workdir, 'test_tags.csv')) else {}
+                            } if os.path.exists(os.path.join(workdir, 'test_tags.csv')) else {}
                         )
                     })
                     categories.append({
@@ -383,7 +383,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                       f'which are listed in the table above.', file=f)
                 if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
                     print(f'* `Macro@Best` means the metrics on the tag-level thresholds on each tags, '
-                      'which should have the best F1 scores.', file=f)
+                          'which should have the best F1 scores.', file=f)
                 print(f'', file=f)
                 print(f'For tag-level thresholds, you can find them in [selected_tags.csv]'
                       f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv", endpoint="https://huggingface.co")}).',
