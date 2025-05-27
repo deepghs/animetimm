@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typing import Optional, Literal, List
 
 import click
+import numpy as np
 import pandas as pd
 from PIL import Image
 from ditk import logging
@@ -304,10 +305,34 @@ def export(workdir: str, repo_id: Optional[str] = None,
                         metrics_info['test']['micro_mcc'],
                         metrics_info['test']['micro_precision'],
                         metrics_info['test']['micro_recall'],
+                    ),
+                    **(
+                        {
+                            'Macro@Best (F1/P/R)': '%.3f / %.3f / %.3f' % (
+                                df_tags['best_f1'].mean(),
+                                df_tags['best_precision']['best_precision'],
+                                df_tags['best_recall']['best_recall'],
+                            ),
+                        }
+                        if os.path.exists(os.path.join(workdir, 'test_tags.csv')) else {}
                     )
                 })
+            else:
+                test_threshold = None
             df_s = pd.DataFrame(s_records)
+            df_s = df_s.replace(np.nan, '---')
             print(df_s.to_markdown(index=False), file=f)
+            print(f'', file=f)
+            if test_threshold is None or abs(eval_threshold - test_threshold) < 1e-4:
+                print(f'* `Macro/Micro@{eval_threshold:.2f}` means the metrics '
+                      f'on the threshold {eval_threshold:.2f}.', file=f)
+            else:
+                print(f'* `Macro/Micro@{eval_threshold:.2f}`, `Macro/Micro@{test_threshold:.2f}` '
+                      f'means the metrics on the threshold {eval_threshold:.2f} (validation) '
+                      f'and {test_threshold:.2f} (test).', file=f)
+            if 'test' in metrics_info and os.path.exists(os.path.join(workdir, 'test_tags.csv')):
+                print('* Macro@Best means the mean metrics on the tag-level thresholds on each tags, '
+                      'which should have the best F1 score.', file=f)
             print(f'', file=f)
 
             if os.path.exists(os.path.join(workdir, 'test_tags.csv')):
@@ -333,7 +358,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                         'Name': d_category_names[item['category']],
                         'Alpha': '%.2f' % item.get('alpha', 1.0),
                         'Threshold': '%.3f' % item['best_threshold'],
-                        'Micro (F1/P/R)': '%.3f / %.3f / %.3f' % (
+                        'Micro@Thr (F1/P/R)': '%.3f / %.3f / %.3f' % (
                             item['best_f1'],
                             item['best_precision'],
                             item['best_recall'],
