@@ -363,9 +363,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                             item['best_precision'],
                             item['best_recall'],
                         ),
-                        f'Macro@{test_threshold:.2f} (F1/MCC/P/R)': '%.3f / %.3f / %.3f / %.3f' % (
+                        f'Macro@{test_threshold:.2f} (F1/MCC/P/R)': '%.3f / %.3f / %.3f' % (
                             df_tags[df_tags['category'] == item['category']]['test_f1'].mean(),
-                            df_tags[df_tags['category'] == item['category']]['test_mcc'].mean(),
                             df_tags[df_tags['category'] == item['category']]['test_precision'].mean(),
                             df_tags[df_tags['category'] == item['category']]['test_recall'].mean(),
                         ),
