@@ -145,14 +145,14 @@ def train(
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
-    with open(os.path.join(workdir, 'meta.json'), 'w') as f:
-        json.dump({
-            'model_name': model.model_name,
-            'tags': tags_info.tags,
-            'model_args': model.model_args,
-            'pretrained_cfg': model.pretrained_cfg,
-            'train': train_cfg,
-        }, f, indent=4, ensure_ascii=False, sort_keys=True)
+        with open(os.path.join(workdir, 'meta.json'), 'w') as f:
+            json.dump({
+                'model_name': model.model_name,
+                'tags': tags_info.tags,
+                'model_args': model.model_args,
+                'pretrained_cfg': model.pretrained_cfg,
+                'train': train_cfg,
+            }, f, indent=4, ensure_ascii=False, sort_keys=True)
 
     module = model.module
     train_dataloader = load_dataloader(
