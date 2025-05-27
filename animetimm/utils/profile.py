@@ -25,7 +25,7 @@ def torch_model_profile_via_calflops(model, input_):
     )
     s_flops, s_params, s_macs = clever_format([flops, params, macs], "%.1f")
     logging.info(f'Params: {s_params}, FLOPs: {s_flops}, MACs: {s_macs}.')
-    return s_flops, s_params, s_macs
+    return flops, params, macs
 
 
 if __name__ == '__main__':
