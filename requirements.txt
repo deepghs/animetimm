@@ -1,6 +1,6 @@
 timm
 torchvision
-dghs-imgutils>=0.16.0
+dghs-imgutils>=0.17.0
 torch>=2.6.0
 pillow
 numpy

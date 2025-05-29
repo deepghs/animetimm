@@ -6,19 +6,26 @@ import shutil
 from functools import partial
 from pprint import pformat
 from tempfile import TemporaryDirectory
+from textwrap import indent
 from typing import Optional, Literal, List
 
 import click
 import numpy as np
 import pandas as pd
 from PIL import Image
+from datasets import load_dataset
 from ditk import logging
 from hbutils.encoding import sha3
 from hbutils.string import titleize
+from hbutils.testing import vpip
 from hfutils.operate import get_hf_client, upload_directory_as_directory
 from hfutils.repository import hf_hub_repo_url
 from huggingface_hub import hf_hub_url
+from huggingface_hub.errors import EntryNotFoundError
+from imgutils.generic import MultiLabelTIMMModel as _OriginMultiLabelTIMMModel
+from imgutils.preprocess import create_pillow_transforms
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
+from imgutils.utils import open_onnx_model
 from thop import clever_format
 from timm.models._hub import save_for_hf
 from torchvision.transforms import Compose
@@ -32,6 +39,63 @@ from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version, is_tensorboard_has_c
     VALID_LICENCES, torch_model_profile_via_calflops
 
 _LOG_FILE_PATTERN = re.compile(r'^events\.out\.tfevents\.(?P<timestamp>\d+)\.(?P<machine>[^.]+)\.(?P<extra>[\s\S]+)$')
+
+
+class MultiLabelTIMMModel(_OriginMultiLabelTIMMModel):
+    def __init__(self, repo_id: str, upload_dir: str):
+        self._upload_dir = upload_dir
+        _OriginMultiLabelTIMMModel.__init__(self, repo_id=repo_id)
+
+    def _open_model(self):
+        with self._lock:
+            if self._model is None:
+                self._model = open_onnx_model(os.path.join(self._upload_dir, 'model.onnx'))
+
+        return self._model
+
+    def _open_tags(self):
+        with self._lock:
+            if self._df_tags is None:
+                self._df_tags = pd.read_csv(os.path.join(self._upload_dir, 'selected_tags.csv'), keep_default_na=False)
+                with open(os.path.join(self._upload_dir, 'categories.json'), 'r') as f:
+                    d_category_names = {cate_item['category']: cate_item['name'] for cate_item in json.load(f)}
+                    self._name_to_categories = {}
+                    for category in sorted(set(self._df_tags['category'])):
+                        self._category_names[category] = d_category_names[category]
+                        self._name_to_categories[self._category_names[category]] = category
+
+        return self._df_tags
+
+    def _open_preprocess(self):
+        with self._lock:
+            if self._preprocess is None:
+                with open(os.path.join(self._upload_dir, 'preprocess.json'), 'r') as f:
+                    data_ = json.load(f)
+                    test_trans = create_pillow_transforms(data_['test'])
+                    val_trans = create_pillow_transforms(data_['val'])
+                    self._preprocess = val_trans, test_trans
+
+        return self._preprocess
+
+    def _open_default_category_thresholds(self):
+        with self._lock:
+            if self._default_category_thresholds is None:
+                try:
+                    df_category_thresholds = pd.read_csv(os.path.join(self._upload_dir, 'thresholds.csv'),
+                                                         keep_default_na=False)
+                except (EntryNotFoundError,):
+                    self._default_category_thresholds = {}
+                else:
+                    self._default_category_thresholds = {}
+                    for item in df_category_thresholds.to_dict('records'):
+                        if item['category'] not in self._default_category_thresholds:
+                            self._default_category_thresholds[item['category']] = item['threshold']
+
+        return self._default_category_thresholds
+
+
+def _name_safe(name_text):
+    return re.sub(r'[\W_]+', '_', name_text).strip('_')
 
 
 def export(workdir: str, repo_id: Optional[str] = None,
@@ -223,6 +287,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
         ), 'r') as f:
             d_category_names = {cate_item['category']: cate_item['name'] for cate_item in json.load(f)}
 
+        infer_model = MultiLabelTIMMModel(repo_id=repo_id, upload_dir=upload_dir)
+        image_key = meta_info['train'].get('image_key', 'webp')
+        dataset = load_dataset(dataset_repo_id, split='test')
+
         with open(os.path.join(upload_dir, 'README.md'), 'w') as f:
             base_model_repo_id = model.src_repo_id
             if base_model_repo_id == repo_id:
@@ -397,6 +465,43 @@ def export(workdir: str, repo_id: Optional[str] = None,
                       f'({hf_hub_url(repo_id=repo_id, repo_type="model", filename="selected_tags.csv", endpoint="https://huggingface.co")}).',
                       file=f)
                 print(f'', file=f)
+
+            print(f'## How to Use', file=f)
+            print(f'', file=f)
+
+            imgutils_version = str(vpip('dghs-imgutils')._actual_version)
+            print(f'Install [dghs-imgutils](https://github.com/deepghs/imgutils) with the following command', file=f)
+            print(f'', file=f)
+            print(f'```shell', file=f)
+            print(f'pip install \'dghs-imgutils>={imgutils_version}\'', file=f)
+            print(f'```', file=f)
+            print(f'', file=f)
+            print(f'Use `multilabel_timm_predict` function with the following code', file=f)
+            print(f'', file=f)
+            print(f'```python', file=f)
+            print(f'from imgutils.generic import multilabel_timm_predict', file=f)
+            print(f'', file=f)
+
+            default_fmt = tuple(d_category_names[category] for category in sorted(set(df_tags['category'].tolist())))
+            var_names = tuple(map(_name_safe, default_fmt))
+            print(f'{", ".join(var_names)} = multilabel_timm_predict(', file=f)
+            print(f'    {"my_image.png"!r},', file=f)
+            print(f'    repo_id={repo_id!r},', file=f)
+            print(f'    fmt={default_fmt!r},', file=f)
+            print(f')', file=f)
+            print(f'', file=f)
+
+            sample_input = dataset['test'][0][image_key]
+            values = infer_model.predict(
+                sample_input,
+                fmt=default_fmt
+            )
+            for rt_name, rt_val in zip(var_names, values):
+                print(f'print({rt_name})', file=f)
+                print(f'{indent(pformat(rt_val), prefix="# ")}', file=f)
+
+            print(f'```', file=f)
+            print(f'', file=f)
 
         categories_file = os.path.join(upload_dir, 'categories.json')
         with open(categories_file, 'w') as f:
