@@ -504,6 +504,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 print(f'{indent(pformat(rt_val, sort_dicts=False), prefix="# ")}', file=f)
             print(f'```', file=f)
             print(f'', file=f)
+            print('For further information, see [documentation of function multilabel_timm_predict]'
+                  '(https://dghs-imgutils.deepghs.org/main/api_doc/generic/multilabel_timm.html#multilabel-timm-predict).',
+                  file=f)
+            print(f'', file=f)
 
         upload_directory_as_directory(
             repo_id=repo_id,
