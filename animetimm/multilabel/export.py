@@ -491,7 +491,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f')', file=f)
             print(f'', file=f)
 
-            sample_input = dataset['test'][0][image_key]
+            sample_input = dataset[0][image_key]
             values = infer_model.predict(
                 sample_input,
                 fmt=default_fmt
