@@ -494,7 +494,6 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'    fmt={default_fmt!r},', file=f)
             print(f')', file=f)
             print(f'', file=f)
-
             sample_input = dataset[0][image_key]
             values = infer_model.predict(
                 sample_input,
@@ -502,8 +501,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             )
             for rt_name, rt_val in zip(var_names, values):
                 print(f'print({rt_name})', file=f)
-                print(f'{indent(pformat(rt_val), prefix="# ")}', file=f)
-
+                print(f'{indent(pformat(rt_val, sort_dicts=False), prefix="# ")}', file=f)
             print(f'```', file=f)
             print(f'', file=f)
 
