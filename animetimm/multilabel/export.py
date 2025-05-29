@@ -287,6 +287,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
         ), 'r') as f:
             d_category_names = {cate_item['category']: cate_item['name'] for cate_item in json.load(f)}
 
+
+
         infer_model = MultiLabelTIMMModel(repo_id=repo_id, upload_dir=upload_dir)
         image_key = meta_info['train'].get('image_key', 'webp')
         dataset = load_dataset(dataset_repo_id, split='test')
@@ -466,6 +468,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
                       file=f)
                 print(f'', file=f)
 
+            categories_file = os.path.join(upload_dir, 'categories.json')
+            with open(categories_file, 'w') as f:
+                json.dump(categories, f, sort_keys=True, indent=4, ensure_ascii=False)
+
             print(f'## How to Use', file=f)
             print(f'', file=f)
 
@@ -503,9 +509,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'```', file=f)
             print(f'', file=f)
 
-        categories_file = os.path.join(upload_dir, 'categories.json')
-        with open(categories_file, 'w') as f:
-            json.dump(categories, f, sort_keys=True, indent=4, ensure_ascii=False)
+
 
         upload_directory_as_directory(
             repo_id=repo_id,
