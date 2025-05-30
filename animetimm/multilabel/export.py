@@ -512,10 +512,20 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(indent(str(tv_preprocess), prefix="# "), file=f)
             print(f'', file=f)
             print(f"image = Image.open('my_image.png')", file=f)
+            input_ = tv_preprocess(sample_input).unsqueeze(0)
+            model, _, _ = Model.load_from_zip(best_ckpt_zip_file)
+            model = model.module
+            model.eval()
+            with torch.no_grad():
+                output = model(input_)
+                prediction = torch.sigmoid(output)[0]
             print(f'input_ = preprocessor(image).unsqueeze(0)', file=f)
+            print(f'# input_, shape: {input_.shape!r}, dtype: {input_.dtype!r}', file=f)
             print(f'with torch.no_grad():', file=f)
             print(f'    output = model(input_)', file=f)
             print(f'    prediction = torch.sigmoid(output)[0]', file=f)
+            print(f'# output, shape: {output.shape!r}, dtype: {output.dtype!r}', file=f)
+            print(f'# prediction, shape: {prediction.shape!r}, dtype: {prediction.dtype!r}', file=f)
             print(f'', file=f)
             print(f'df_tags = pd.read_csv(', file=f)
             print(f"    hf_hub_download(repo_id=repo_id, repo_type='model', filename='selected_tags.csv'),", file=f)
@@ -527,13 +537,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             else:
                 print(f"mask = prediction.numpy() >= 0.4", file=f)
             print(f'print(dict(zip(tags[mask].tolist(), prediction[mask].tolist())))', file=f)
-            input_ = tv_preprocess(sample_input).unsqueeze(0)
-            model, _, _ = Model.load_from_zip(best_ckpt_zip_file)
-            model = model.module
-            model.eval()
-            with torch.no_grad():
-                output = model(input_)
-                prediction = torch.sigmoid(output)[0]
+
             tags = df_tags['name']
             if 'best_threshold' in df_tags:
                 mask = prediction.numpy() >= df_tags['best_threshold']
