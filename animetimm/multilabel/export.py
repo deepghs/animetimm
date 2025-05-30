@@ -507,7 +507,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 f"with open(hf_hub_download(repo_id=repo_id, repo_type='model', filename='preprocess.json'), 'r') as f:",
                 file=f)
             print(f"    preprocessor = create_torchvision_transforms(json.load(f)['test'])", file=f)
-            print(indent(str(create_torchvision_transforms(trans['test'])), prefix="# "), file=f)
+            tv_preprocess = create_torchvision_transforms(trans['test'])
+            print(indent(str(tv_preprocess), prefix="# "), file=f)
             print(f'', file=f)
             print(f"image = Image.open('my_image.png')", file=f)
             print(f'input_ = preprocessor(image).unsqueeze(0)', file=f)
@@ -525,8 +526,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             else:
                 print(f"mask = prediction.numpy() >= 0.4", file=f)
             print(f'print(dict(zip(tags[mask].tolist(), prediction[mask].tolist())))', file=f)
-            tv_preprocess = create_torchvision_transforms(trans['test'])
-            input_ = tv_preprocess(image).unsqueeze(0)
+            input_ = tv_preprocess(sample_input).unsqueeze(0)
             with torch.no_grad():
                 output = model.module(input_)
                 prediction = torch.sigmoid(output)[0]
