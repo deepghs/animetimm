@@ -529,8 +529,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'print(dict(zip(tags[mask].tolist(), prediction[mask].tolist())))', file=f)
             input_ = tv_preprocess(sample_input).unsqueeze(0)
             model, _, _ = Model.load_from_zip(best_ckpt_zip_file)
+            model = model.module
+            model.eval()
             with torch.no_grad():
-                output = model.module(input_)
+                output = model(input_)
                 prediction = torch.sigmoid(output)[0]
             tags = df_tags['name']
             if 'best_threshold' in df_tags:
