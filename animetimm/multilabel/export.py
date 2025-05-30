@@ -128,6 +128,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             model.pretrained_cfg['test_input_size'] = model.pretrained_cfg['input_size']
         model.pretrained_cfg['license'] = license
         model.module.pretrained_cfg.update(model.pretrained_cfg)
+        model.module.eval()
 
         model: Model
         pretrained_tag = meta_info['train'].get('pretrained_tag') or load_pretrained_tag(dataset_repo_id)
