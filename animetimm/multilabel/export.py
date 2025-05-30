@@ -12,6 +12,7 @@ from typing import Optional, Literal, List
 import click
 import numpy as np
 import pandas as pd
+import torch
 from PIL import Image
 from datasets import load_dataset
 from ditk import logging
@@ -474,6 +475,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'', file=f)
 
             imgutils_version = str(vpip('dghs-imgutils')._actual_version)
+            sample_input = dataset[0][image_key]
             print(f'### Use TIMM And Torch', file=f)
             print(f'', file=f)
             print(f'Install [dghs-imgutils](https://github.com/deepghs/imgutils), '
@@ -498,7 +500,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'from timm import create_model', file=f)
             print(f'', file=f)
             print(f"repo_id = {repo_id!r}", file=f)
-            print(f"model = create_model(f'hf-hub:{repo_id}', pretrained=True)", file=f)
+            print(f"model = create_model(f'hf-hub:{{repo_id}}', pretrained=True)", file=f)
             print(f'model.eval()', file=f)
             print(f'', file=f)
             print(
@@ -523,6 +525,18 @@ def export(workdir: str, repo_id: Optional[str] = None,
             else:
                 print(f"mask = prediction.numpy() >= 0.4", file=f)
             print(f'print(dict(zip(tags[mask].tolist(), prediction[mask].tolist())))', file=f)
+            tv_preprocess = create_torchvision_transforms(trans['test'])
+            input_ = tv_preprocess(image).unsqueeze(0)
+            with torch.no_grad():
+                output = model.module(input_)
+                prediction = torch.sigmoid(output)[0]
+            tags = df_tags['name']
+            if 'best_threshold' in df_tags:
+                mask = prediction.numpy() >= df_tags['best_threshold']
+            else:
+                mask = prediction.numpy() >= 0.4
+            dt = dict(zip(tags[mask].tolist(), prediction[mask].tolist()))
+            print(f'{indent(pformat(dt, sort_dicts=False), prefix="# ")}', file=f)
             print(f'```', file=f)
 
             print(f'### Use ONNX Model For Inference', file=f)
@@ -547,7 +561,6 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'    fmt={(default_fmt if len(default_fmt) != 1 else default_fmt[0])!r},', file=f)
             print(f')', file=f)
             print(f'', file=f)
-            sample_input = dataset[0][image_key]
             values = infer_model.predict(
                 sample_input,
                 fmt=default_fmt
