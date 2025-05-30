@@ -491,7 +491,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'{", ".join(var_names)} = multilabel_timm_predict(', file=f)
             print(f'    {"my_image.png"!r},', file=f)
             print(f'    repo_id={repo_id!r},', file=f)
-            print(f'    fmt={(default_fmt if len(default_fmt) > 0 else default_fmt[0])!r},', file=f)
+            print(f'    fmt={(default_fmt if len(default_fmt) != 1 else default_fmt[0])!r},', file=f)
             print(f')', file=f)
             print(f'', file=f)
             sample_input = dataset[0][image_key]
