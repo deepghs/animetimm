@@ -528,6 +528,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 print(f"mask = prediction.numpy() >= 0.4", file=f)
             print(f'print(dict(zip(tags[mask].tolist(), prediction[mask].tolist())))', file=f)
             input_ = tv_preprocess(sample_input).unsqueeze(0)
+            model, _, _ = Model.load_from_zip(best_ckpt_zip_file)
             with torch.no_grad():
                 output = model.module(input_)
                 prediction = torch.sigmoid(output)[0]
