@@ -24,7 +24,7 @@ from huggingface_hub import hf_hub_url
 from huggingface_hub.errors import EntryNotFoundError
 from imgutils.generic import MultiLabelTIMMModel as _OriginMultiLabelTIMMModel
 from imgutils.preprocess import create_pillow_transforms
-from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms
+from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms, create_torchvision_transforms
 from imgutils.utils import open_onnx_model
 from thop import clever_format
 from timm.models._hub import save_for_hf
@@ -474,6 +474,59 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'', file=f)
 
             imgutils_version = str(vpip('dghs-imgutils')._actual_version)
+            print(f'### Use TIMM And Torch', file=f)
+            print(f'', file=f)
+            print(f'Install [dghs-imgutils](https://github.com/deepghs/imgutils), '
+                  f'[timm](https://github.com/huggingface/pytorch-image-models) '
+                  f'and other necessary requirements with the following command', file=f)
+            print(f'', file=f)
+            print(f'```shell', file=f)
+            print(f'pip install \'dghs-imgutils>={imgutils_version}\' torch huggingface_hub timm pillow pandas', file=f)
+            print(f'```', file=f)
+            print(f'', file=f)
+            print(f'After that you can load this model with timm library, and use it for train, validation and test, '
+                  f'with the following code')
+            print(f'', file=f)
+            print(f'```python', file=f)
+            print(f'import json', file=f)
+            print(f'', file=f)
+            print(f'import pandas as pd', file=f)
+            print(f'import torch', file=f)
+            print(f'from PIL import Image', file=f)
+            print(f'from huggingface_hub import hf_hub_download', file=f)
+            print(f'from imgutils.preprocess import create_torchvision_transforms', file=f)
+            print(f'from timm import create_model', file=f)
+            print(f'', file=f)
+            print(f"repo_id = {repo_id!r}", file=f)
+            print(f"model = create_model(f'hf-hub:{repo_id}', pretrained=True)", file=f)
+            print(f'model.eval()', file=f)
+            print(f'', file=f)
+            print(
+                f"with open(hf_hub_download(repo_id=repo_id, repo_type='model', filename='preprocess.json'), 'r') as f:",
+                file=f)
+            print(f"    preprocessor = create_torchvision_transforms(json.load(f)['test'])", file=f)
+            print(indent(str(create_torchvision_transforms(trans['test'])), prefix="# "), file=f)
+            print(f'', file=f)
+            print(f"image = Image.open('my_image.png')", file=f)
+            print(f'input_ = preprocessor(image).unsqueeze(0)', file=f)
+            print(f'with torch.no_grad():', file=f)
+            print(f'    output = model(input_)', file=f)
+            print(f'    prediction = torch.sigmoid(output)[0]', file=f)
+            print(f'', file=f)
+            print(f'df_tags = pd.read_csv(', file=f)
+            print(f"    hf_hub_download(repo_id=repo_id, repo_type='model', filename='selected_tags.csv'),", file=f)
+            print(f'    keep_default_na=False', file=f)
+            print(f')', file=f)
+            print(f"tags = df_tags['name']", file=f)
+            if 'best_threshold' in df_tags:
+                print(f"mask = prediction.numpy() >= df_tags['best_threshold']", file=f)
+            else:
+                print(f"mask = prediction.numpy() >= 0.4", file=f)
+            print(f'print(dict(zip(tags[mask].tolist(), prediction[mask].tolist())))', file=f)
+            print(f'```', file=f)
+
+            print(f'### Use ONNX Model For Inference', file=f)
+            print(f'', file=f)
             print(f'Install [dghs-imgutils](https://github.com/deepghs/imgutils) with the following command', file=f)
             print(f'', file=f)
             print(f'```shell', file=f)
