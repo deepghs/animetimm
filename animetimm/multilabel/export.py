@@ -488,7 +488,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'```', file=f)
             print(f'', file=f)
             print(f'After that you can load this model with timm library, and use it for train, validation and test, '
-                  f'with the following code')
+                  f'with the following code', file=f)
             print(f'', file=f)
             print(f'```python', file=f)
             print(f'import json', file=f)
