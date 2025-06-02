@@ -20,7 +20,8 @@ from hbutils.encoding import sha3
 from hbutils.string import titleize
 from hbutils.testing import vpip
 from hfutils.operate import get_hf_client, upload_directory_as_directory
-from hfutils.repository import hf_hub_repo_url
+from hfutils.repository import hf_hub_repo_url, hf_hub_repo_file_url
+from hfutils.utils import hf_normpath
 from huggingface_hub import hf_hub_url
 from huggingface_hub.errors import EntryNotFoundError
 from imgutils.generic import MultiLabelTIMMModel as _OriginMultiLabelTIMMModel
@@ -477,6 +478,16 @@ def export(workdir: str, repo_id: Optional[str] = None,
 
             imgutils_version = str(vpip('dghs-imgutils')._actual_version)
             sample_input = dataset[0][image_key]
+            sample_input_file = os.path.join(upload_dir, 'sample.webp')
+            sample_input_relfile = hf_normpath(os.path.relpath(sample_input_file, upload_dir))
+            sample_input.save(sample_input_file)
+            sample_input_url = hf_hub_url(repo_id=repo_id, repo_type='model', filename=sample_input_relfile)
+            sample_input_page_url = hf_hub_repo_file_url(repo_id=repo_id, repo_type='model', path=sample_input_relfile)
+
+            print(f'We provided a sample image for our code samples, '
+                  f'you can find it [here]({sample_input_page_url})', file=f)
+            print(f'', file=f)
+
             print(f'### Use TIMM And Torch', file=f)
             print(f'', file=f)
             print(f'Install [dghs-imgutils](https://github.com/deepghs/imgutils), '
@@ -495,8 +506,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'', file=f)
             print(f'import pandas as pd', file=f)
             print(f'import torch', file=f)
-            print(f'from PIL import Image', file=f)
             print(f'from huggingface_hub import hf_hub_download', file=f)
+            print(f'from imgutils.data import load_image', file=f)
             print(f'from imgutils.preprocess import create_torchvision_transforms', file=f)
             print(f'from timm import create_model', file=f)
             print(f'', file=f)
@@ -511,7 +522,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             tv_preprocess = create_torchvision_transforms(trans['test'])
             print(indent(str(tv_preprocess), prefix="# "), file=f)
             print(f'', file=f)
-            print(f"image = Image.open('my_image.png')", file=f)
+            print(f"image = load_image({sample_input_url!r})", file=f)
             input_ = tv_preprocess(sample_input).unsqueeze(0)
             model, _, _ = Model.load_from_zip(best_ckpt_zip_file)
             model = model.module
@@ -564,7 +575,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             default_fmt = tuple(d_category_names[category] for category in sorted(set(df_tags['category'].tolist())))
             var_names = tuple(map(_name_safe, default_fmt))
             print(f'{", ".join(var_names)} = multilabel_timm_predict(', file=f)
-            print(f'    {"my_image.png"!r},', file=f)
+            print(f'    {sample_input_url!r},', file=f)
             print(f'    repo_id={repo_id!r},', file=f)
             print(f'    fmt={(default_fmt if len(default_fmt) != 1 else default_fmt[0])!r},', file=f)
             print(f')', file=f)
