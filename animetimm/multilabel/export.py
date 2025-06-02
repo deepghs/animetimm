@@ -485,7 +485,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             sample_input_page_url = hf_hub_repo_file_url(repo_id=repo_id, repo_type='model', path=sample_input_relfile)
 
             print(f'We provided a sample image for our code samples, '
-                  f'you can find it [here]({sample_input_page_url})', file=f)
+                  f'you can find it [here]({sample_input_page_url}).', file=f)
             print(f'', file=f)
 
             print(f'### Use TIMM And Torch', file=f)
