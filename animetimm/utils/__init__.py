@@ -1,4 +1,4 @@
-from .cli import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value
+from .cli import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value, parse_tuple
 from .constants import VALID_LICENCES
 from .md import markdown_to_df
 from .parallel import parallel_call

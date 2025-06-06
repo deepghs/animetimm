@@ -3,7 +3,7 @@ import os
 import random
 from functools import partial
 from pprint import pformat
-from typing import Optional, Sequence, List
+from typing import Optional, Sequence, List, Tuple
 
 import click
 import pandas as pd
@@ -22,7 +22,9 @@ from .metrics import mcc, f1score, precision, recall
 from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..session import TrainSession
-from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value
+from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value, parse_tuple
+
+_DEFAULT_BETAS = (0.9, 0.999)
 
 
 def train(
@@ -52,6 +54,7 @@ def train(
         seen_tag_keys: Optional[List[str]] = None,
         image_key: str = 'webp',
         use_pretrained_weight: bool = True,
+        adam_betas: Optional[Tuple[float, float]] = None,
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -120,6 +123,7 @@ def train(
     logging.info(f'Pretrained tag {pretrained_tag!r} found for dataset {dataset_repo_id!r}.')
     model.pretrained_tag = pretrained_tag
     previous_epoch: int
+    adam_betas = adam_betas or _DEFAULT_BETAS
     train_cfg = {
         'batch_size': batch_size,
         'max_epochs': max_epochs,
@@ -144,6 +148,7 @@ def train(
         'seen_tag_keys': seen_tag_keys,
         'image_key': image_key,
         'use_pretrained_weight': use_pretrained_weight,
+        'adam_betas': adam_betas,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -195,6 +200,7 @@ def train(
         filter(lambda p: p.requires_grad, module.parameters()),
         lr=learning_rate,
         weight_decay=weight_decay,
+        betas=tuple(adam_betas),
     )
 
     module, optimizer, train_dataloader, eval_dataloader, loss_fn = \
@@ -481,10 +487,13 @@ def train(
                    '--model-arg name:str=123\n'
                    '--model-arg layers:list=1,2,3',
               show_default=True)
+@click.option('--adam-betas', '--betas', 'adam_betas', callback=parse_tuple, default=None,
+              help='Beta values for adam-like optimizers.', show_default=True)
 def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio, mixup_alpha,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
-        tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg, image_key, suffix, use_pretrained_weight):
+        tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg, image_key, suffix, use_pretrained_weight,
+        adam_betas):
     logging.try_init_root(logging.INFO)
 
     rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
@@ -534,6 +543,7 @@ def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, 
         max_epochs=max_epochs,
         image_key=image_key,
         use_pretrained_weight=use_pretrained_weight,
+        adam_betas=adam_betas,
     )
 
 

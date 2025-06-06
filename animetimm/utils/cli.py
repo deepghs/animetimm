@@ -11,7 +11,7 @@ Key features:
 """
 
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, Optional
 
 import click
 from click.core import Context, Option
@@ -154,3 +154,10 @@ def auto_detect_type(value: str) -> Any:
     except ValueError:
         # If not a number, keep as string
         return value
+
+
+def parse_tuple(ctx, param, value) -> Optional[Tuple[Any, ...]]:
+    if value is not None:
+        return tuple([auto_detect_type(v) for v in value.split(',')])
+    else:
+        return None
