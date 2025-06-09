@@ -453,6 +453,13 @@ def export(workdir: str, repo_id: Optional[str] = None,
                         'category': item['category'],
                         'name': d_category_names[item['category']],
                     })
+                else:
+                    categories = []
+                    for category in sorted(set(df_tags['category'].tolist())):
+                        categories.append({
+                            'category': category,
+                            'name': d_category_names[category],
+                        })
                 pd.DataFrame(t_records).to_csv(threshold_file, index=False)
                 print(pd.DataFrame(ts_records).to_markdown(index=False, stralign='center', numalign='center'), file=f)
                 print(f'', file=f)
