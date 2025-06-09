@@ -23,7 +23,6 @@ from hfutils.operate import get_hf_client, upload_directory_as_directory
 from hfutils.repository import hf_hub_repo_url, hf_hub_repo_file_url
 from hfutils.utils import hf_normpath
 from huggingface_hub import hf_hub_url
-from huggingface_hub.errors import EntryNotFoundError
 from imgutils.generic import MultiLabelTIMMModel as _OriginMultiLabelTIMMModel
 from imgutils.preprocess import create_pillow_transforms
 from imgutils.preprocess.torchvision import PadToSize, parse_torchvision_transforms, create_torchvision_transforms
@@ -85,7 +84,7 @@ class MultiLabelTIMMModel(_OriginMultiLabelTIMMModel):
                 try:
                     df_category_thresholds = pd.read_csv(os.path.join(self._upload_dir, 'thresholds.csv'),
                                                          keep_default_na=False)
-                except (EntryNotFoundError,):
+                except (FileNotFoundError,):
                     self._default_category_thresholds = {}
                 else:
                     self._default_category_thresholds = {}
