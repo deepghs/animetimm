@@ -123,7 +123,8 @@ if __name__ == '__main__':
     )
 
     dataloader = load_dataloader(
-        repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-30k',
+        # repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-30k',
+        repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-full',
         is_main_process=accelerator.is_main_process
     )
     dataloader = accelerator.prepare(dataloader)
