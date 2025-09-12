@@ -139,7 +139,8 @@ def cli(num_workers, batch_size, repository, splits):
 
     means, stds, batches = [], [], []
     for split in splits:
-        logging.info(f'Calculating split {split!r} ...')
+        if accelerator.is_main_process:
+            logging.info(f'Calculating split {split!r} ...')
         dataloader = load_dataloader(
             repo_id=repository,
             is_main_process=accelerator.is_main_process,
