@@ -144,6 +144,8 @@ if __name__ == '__main__':
     batches = accelerator.gather(batches)
 
     if accelerator.is_main_process:
+        logging.info(f'Gather completed, means shape: {means.shape!r}, '
+                     f'stds shape: {stds.shape!r}, batches shape: {batches.shape!r}')
         print(means.shape, stds.shape, batches.shape)
 
         means = means.detach().cpu().numpy()
@@ -152,9 +154,7 @@ if __name__ == '__main__':
 
         final_means, final_stds = [], []
         for i in range(3):
-            mean_c = means[:, i]
-            std_c = stds[:, i]
-            mean_v_c, std_v_c = compute_total_mean_std(mean_c, std_c, batches)
+            mean_v_c, std_v_c = compute_total_mean_std(means[:, i], stds[:, i], batches)
             final_means.append(mean_v_c)
             final_stds.append(std_v_c)
 
