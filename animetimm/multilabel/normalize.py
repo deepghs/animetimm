@@ -94,8 +94,8 @@ def load_dataloader(repo_id: str, model_name: str = 'caformer_s36.sail_in22k_ft_
         collate_fn=collate_fn,
         batch_size=batch_size,
         num_workers=num_workers,
-        shuffle=split == 'train',
-        drop_last=split == 'train',
+        shuffle=True,
+        drop_last=False,
     )
     return dataloader
 
@@ -127,6 +127,7 @@ if __name__ == '__main__':
         is_main_process=accelerator.is_main_process
     )
     dataloader = accelerator.prepare(dataloader)
+    logging.info(f'Worker #{accelerator.process_index} ready for running.')
     accelerator.wait_for_everyone()
 
     means, stds, batches = [], [], []
@@ -139,10 +140,12 @@ if __name__ == '__main__':
     means = torch.stack(means)
     stds = torch.stack(stds)
     batches = torch.tensor(batches).to(accelerator.device)
+    logging.info(f'Worker #{accelerator.process_index} ready for gathering.')
+    accelerator.wait_for_everyone()
+
     means = accelerator.gather(means)
     stds = accelerator.gather(stds)
     batches = accelerator.gather(batches)
-    accelerator.wait_for_everyone()
 
     if accelerator.is_main_process:
         logging.info(f'Gather completed, means shape: {means.shape!r}, '
