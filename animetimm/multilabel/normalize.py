@@ -134,8 +134,7 @@ if __name__ == '__main__':
     means, stds, batches = [], [], []
     for i, inputs in enumerate(tqdm(
             dataloader,
-            # disable=not accelerator.is_local_main_process,
-            disable=False,
+            disable=not accelerator.is_local_main_process,
             desc=f'Train on Rank #{accelerator.process_index}'
     )):
         means.append(inputs.mean(dim=(0, 2, 3)))
