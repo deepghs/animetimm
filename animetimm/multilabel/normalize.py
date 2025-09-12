@@ -97,8 +97,8 @@ if __name__ == '__main__':
         iterable=dataset,
         fn=_fn,
         desc='Scanning ALL samples',
-        max_workers=64,
-        max_pending=256,
+        max_workers=256,
+        max_pending=16384,
     )
 
     # for x in enumerate(dataloader):
