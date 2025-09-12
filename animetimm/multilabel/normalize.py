@@ -206,7 +206,7 @@ def cli(num_workers, batch_size, repository, splits):
                 repo_type='dataset',
                 local_directory=upload_dir,
                 path_in_repo='.',
-                message=f'Calculate mean ({final_means!r}) and std ({final_stds!r}) for dataset'
+                message=f'Calculate mean ({final_means}) and std ({final_stds}) for dataset'
             )
 
 
