@@ -122,7 +122,10 @@ if __name__ == '__main__':
         step_scheduler_with_optimizer=False,
     )
 
-    dataloader = load_dataloader(repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-30k')
+    dataloader = load_dataloader(
+        repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-30k',
+        is_main_process=accelerator.is_main_process
+    )
     dataloader = accelerator.prepare(dataloader)
     accelerator.wait_for_everyone()
 
