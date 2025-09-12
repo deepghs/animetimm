@@ -84,7 +84,7 @@ if __name__ == '__main__':
     print(dataset)
     print(transform)
     means, stds = [], []
-    for sample in enumerate(tqdm(dataset, desc='Scanning ALL samples')):
+    for sample in tqdm(dataset, desc='Scanning ALL samples'):
         print(sample)
         image = sample['webp']
         data = transform(image)
