@@ -142,6 +142,7 @@ if __name__ == '__main__':
     means = accelerator.gather(means)
     stds = accelerator.gather(stds)
     batches = accelerator.gather(batches)
+    accelerator.wait_for_everyone()
 
     if accelerator.is_main_process:
         logging.info(f'Gather completed, means shape: {means.shape!r}, '
@@ -154,6 +155,7 @@ if __name__ == '__main__':
 
         final_means, final_stds = [], []
         for i in range(3):
+            logging.info(f'Calculating channel #{i} ...')
             mean_v_c, std_v_c = compute_total_mean_std(means[:, i], stds[:, i], batches)
             final_means.append(mean_v_c)
             final_stds.append(std_v_c)
