@@ -1,11 +1,14 @@
 from typing import Literal, Optional, Sequence, List
 
 import timm
+import torch
+from accelerate import Accelerator
 from ditk import logging
 from timm.data import MaybeToTensor
+from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize, Compose
+from tqdm import tqdm
 
-from animetimm.utils import parallel_call
 from .augmentation import create_transforms
 from .dataset import load_dataset
 
@@ -76,31 +79,45 @@ def load_dataloader(repo_id: str, model_name: str = 'caformer_s36.sail_in22k_ft_
         seen_tag_keys=seen_tag_keys,
         image_key=image_key,
     )
-    return dataset, trans
+
+    def collate_fn(examples):
+        images = []
+        for example in examples:
+            images.append((example["image"]))
+
+        pixel_values = torch.stack(images)
+        return pixel_values
+
+    dataloader = DataLoader(
+        dataset,
+        collate_fn=collate_fn,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=split == 'train',
+        drop_last=split == 'train',
+    )
+    return dataloader
 
 
 if __name__ == '__main__':
-    dataset, transform = load_dataloader(repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-full')
-    print(dataset)
-    print(transform)
-    means, stds = [], []
-
-
-    def _fn(sample):
-        image = sample['webp']
-        data = transform(image)
-        means.append(data.mean(dim=(1, 2)))
-        stds.append(data.std(dim=(1, 2)))
-
-
-    parallel_call(
-        iterable=dataset,
-        fn=_fn,
-        desc='Scanning ALL samples',
-        max_workers=256,
-        max_pending=16384,
+    logging.try_init_root(level=logging.INFO)
+    accelerator = Accelerator(
+        # mixed_precision=self.cfgs.mixed_precision,
+        step_scheduler_with_optimizer=False,
     )
 
-    # for x in enumerate(dataloader):
-    #     print(x.shape)
-    #     quit()
+    dataloader = load_dataloader(repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-full')
+    dataloader = accelerator.prepare(dataloader)
+    accelerator.wait_for_everyone()
+
+    means, stds, bs = [], [], []
+    for i, inputs in enumerate(tqdm(dataloader, disable=not accelerator.is_local_main_process,
+                                    desc=f'Train on Rank #{accelerator.process_index}')):
+        means.append(inputs.mean(dim=(0, 2, 3)))
+        stds.append(inputs.mean(dim=(0, 2, 3)))
+        bs.append(inputs.shape[0])
+
+    means = torch.stack(means)
+    stds = torch.stack(stds)
+    bs = torch.tensor(bs).to(means.device)
+    print(means.shape, stds.shape, bs.shape)
