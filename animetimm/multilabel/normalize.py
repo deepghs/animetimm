@@ -207,3 +207,7 @@ def cli(num_workers, batch_size, repository, splits):
                 path_in_repo='.',
                 message=f'Calculate mean ({final_means!r}) and std ({final_stds!r}) for dataset'
             )
+
+
+if __name__ == '__main__':
+    cli()
