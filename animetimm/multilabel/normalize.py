@@ -1,5 +1,6 @@
 from typing import Literal, Optional, Sequence, List
 
+import numpy as np
 import timm
 import torch
 from accelerate import Accelerator
@@ -99,6 +100,21 @@ def load_dataloader(repo_id: str, model_name: str = 'caformer_s36.sail_in22k_ft_
     return dataloader
 
 
+def compute_total_mean_std(means, stds, batches):
+    means = np.array(means)
+    stds = np.array(stds)
+    batches = np.array(batches)
+
+    total_samples = np.sum(batches)
+    total_mean = np.sum(means * batches) / total_samples
+    batch_variances = stds ** 2
+    weighted_variance_sum = np.sum(batches * (batch_variances + means ** 2))
+    total_variance = weighted_variance_sum / total_samples - total_mean ** 2
+    total_std = np.sqrt(total_variance)
+
+    return total_mean, total_std
+
+
 if __name__ == '__main__':
     logging.try_init_root(level=logging.INFO)
     accelerator = Accelerator(
@@ -110,14 +126,37 @@ if __name__ == '__main__':
     dataloader = accelerator.prepare(dataloader)
     accelerator.wait_for_everyone()
 
-    means, stds, bs = [], [], []
+    means, stds, batches = [], [], []
     for i, inputs in enumerate(tqdm(dataloader, disable=not accelerator.is_local_main_process,
                                     desc=f'Train on Rank #{accelerator.process_index}')):
         means.append(inputs.mean(dim=(0, 2, 3)))
         stds.append(inputs.mean(dim=(0, 2, 3)))
-        bs.append(inputs.shape[0])
+        batches.append(inputs.shape[0])
 
     means = torch.stack(means)
     stds = torch.stack(stds)
-    bs = torch.tensor(bs).to(means.device)
-    print(means.shape, stds.shape, bs.shape)
+    batches = torch.tensor(batches).to(accelerator.device)
+    means = accelerator.gather(means)
+    stds = accelerator.gather(stds)
+    batches = accelerator.gather(batches)
+
+    if accelerator.is_main_process:
+        print(means.shape, stds.shape, batches.shape)
+
+        means = means.detach().cpu().numpy()
+        stds = stds.detach().cpu().numpy()
+        batches = batches.detach().cpu().numpy()
+
+        final_means, final_stds = [], []
+        for i in range(3):
+            mean_c = means[:, i]
+            std_c = stds[:, i]
+            mean_v_c, std_v_c = compute_total_mean_std(mean_c, std_c, batches)
+            final_means.append(mean_v_c)
+            final_stds.append(std_v_c)
+
+        final_means, final_stds = np.array(final_means), np.array(final_stds)
+        total_count = batches.sum()
+        logging.info(f'Final means: {final_means!r}')
+        logging.info(f'Final stds: {final_stds!r}')
+        logging.info(f'Total count: {total_count!r}')
