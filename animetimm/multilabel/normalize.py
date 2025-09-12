@@ -4,8 +4,8 @@ import timm
 from ditk import logging
 from timm.data import MaybeToTensor
 from torchvision.transforms import Normalize, Compose
-from tqdm import tqdm
 
+from animetimm.utils import parallel_call
 from .augmentation import create_transforms
 from .dataset import load_dataset
 
@@ -84,12 +84,22 @@ if __name__ == '__main__':
     print(dataset)
     print(transform)
     means, stds = [], []
-    for sample in tqdm(dataset, desc='Scanning ALL samples'):
-        # print(sample)
+
+
+    def _fn(sample):
         image = sample['webp']
         data = transform(image)
         means.append(data.mean(dim=(1, 2)))
         stds.append(data.std(dim=(1, 2)))
+
+
+    parallel_call(
+        iterable=dataset,
+        fn=_fn,
+        desc='Scanning ALL samples',
+        max_workers=64,
+        max_pending=256,
+    )
 
     # for x in enumerate(dataloader):
     #     print(x.shape)
