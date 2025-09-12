@@ -85,7 +85,7 @@ if __name__ == '__main__':
     print(transform)
     means, stds = [], []
     for sample in tqdm(dataset, desc='Scanning ALL samples'):
-        print(sample)
+        # print(sample)
         image = sample['webp']
         data = transform(image)
         means.append(data.mean(dim=(1, 2)))
