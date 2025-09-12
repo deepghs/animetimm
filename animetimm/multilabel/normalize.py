@@ -80,6 +80,12 @@ def load_dataloader(repo_id: str, model_name: str = 'caformer_s36.sail_in22k_ft_
 
 if __name__ == '__main__':
     dataset, transform = load_dataloader(repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-full')
+    for sample in dataset:
+        image = sample['json']['image']
+        print(image)
+        print(transform(image).shape)
+        quit()
+
     print(dataset)
     print(transform)
     # for x in enumerate(dataloader):
