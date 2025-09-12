@@ -52,7 +52,7 @@ def load_dataloader(repo_id: str, model_name: str = 'caformer_s36.sail_in22k_ft_
                     categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None):
     trans = create_normalize_transform(
         model_name=model_name,
-        is_training=split == 'train',
+        is_training=False,
         use_test_size=use_test_size_when_test and (split == 'test'),
         noise_level=noise_level if split == 'train' else 0,
         rotation_ratio=rotation_ratio,
@@ -85,6 +85,7 @@ if __name__ == '__main__':
     print(transform)
     means, stds = [], []
     for sample in enumerate(tqdm(dataset, desc='Scanning ALL samples')):
+        print(sample)
         image = sample['webp']
         data = transform(image)
         means.append(data.mean(dim=(1, 2)))
