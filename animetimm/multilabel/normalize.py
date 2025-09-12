@@ -48,7 +48,7 @@ def create_normalize_transform(
 
 def load_dataloader(repo_id: str, model_name: str = 'caformer_s36.sail_in22k_ft_in1k_384',
                     split: Literal['train', 'test', 'validation'] = 'train',
-                    batch_size: int = 256, num_workers: int = 32, noise_level: int = 2,
+                    batch_size: int = 256, num_workers: int = 16, noise_level: int = 2,
                     rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
                     cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
                     pre_align: bool = True, align_size: int = 512, is_main_process: bool = True,
