@@ -1,15 +1,22 @@
+import json
+import os.path
+from functools import partial
 from typing import Literal, Optional, Sequence, List
 
+import click
 import numpy as np
 import timm
 import torch
 from accelerate import Accelerator
 from ditk import logging
+from hbutils.system import TemporaryDirectory
+from hfutils.operate import upload_directory_as_directory
 from timm.data import MaybeToTensor
 from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize, Compose
 from tqdm import tqdm
 
+from animetimm.utils import GLOBAL_CONTEXT_SETTINGS, print_version
 from .augmentation import create_transforms
 from .dataset import load_dataset
 
@@ -115,33 +122,44 @@ def compute_total_mean_std(means, stds, batches):
     return total_mean, total_std
 
 
-if __name__ == '__main__':
+@click.command(context_settings={**GLOBAL_CONTEXT_SETTINGS}, help="Normalize channel values for multilabel datasets.")
+@click.option('-v', '--version', is_flag=True,
+              callback=partial(print_version, 'animetimm.multilabel.normalize'), expose_value=False, is_eager=True)
+@click.option('--num-workers', '-nw', default=16, type=int, help='Number of workers', show_default=True)
+@click.option('--batch-size', '-bs', default=256, type=int, help='Batch size', show_default=True)
+@click.option('--repository', '-r', required=True, help='Repository for dataset')
+@click.option('--splits', '-s', multiple=True, default=['train', 'validation', 'test'],
+              help='Dataset splits to process (can be specified multiple times)', show_default=True)
+def cli(num_workers, batch_size, repository, splits):
     logging.try_init_root(level=logging.INFO)
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
         step_scheduler_with_optimizer=False,
     )
 
-    dataloader = load_dataloader(
-        # repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-30k',
-        repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-full',
-        is_main_process=accelerator.is_main_process
-    )
-    dataloader = accelerator.prepare(dataloader)
-    logging.info(f'Worker #{accelerator.process_index} ready for running.')
-    accelerator.wait_for_everyone()
-
     means, stds, batches = [], [], []
-    for i, inputs in enumerate(tqdm(
-            dataloader,
-            disable=not accelerator.is_local_main_process,
-            desc=f'Train on Rank #{accelerator.process_index}'
-    )):
-        means.append(inputs.mean(dim=(0, 2, 3)))
-        stds.append(inputs.std(dim=(0, 2, 3)))
-        batches.append(inputs.shape[0])
-        if i % 20 == 0:
-            accelerator.wait_for_everyone()
+    for split in splits:
+        logging.info(f'Calculating split {split!r} ...')
+        dataloader = load_dataloader(
+            repo_id=repository,
+            is_main_process=accelerator.is_main_process,
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
+        dataloader = accelerator.prepare(dataloader)
+        logging.info(f'Worker #{accelerator.process_index} ready for running split {split!r} ...')
+        accelerator.wait_for_everyone()
+
+        for i, inputs in enumerate(tqdm(
+                dataloader,
+                disable=not accelerator.is_local_main_process,
+                desc=f'Split {split!r} on Rank #{accelerator.process_index}'
+        )):
+            means.append(inputs.mean(dim=(0, 2, 3)))
+            stds.append(inputs.std(dim=(0, 2, 3)))
+            batches.append(inputs.shape[0])
+            if i % 20 == 0:
+                accelerator.wait_for_everyone()
 
     means = torch.stack(means)
     stds = torch.stack(stds)
@@ -156,7 +174,6 @@ if __name__ == '__main__':
     if accelerator.is_main_process:
         logging.info(f'Gather completed, means shape: {means.shape!r}, '
                      f'stds shape: {stds.shape!r}, batches shape: {batches.shape!r}')
-        print(means.shape, stds.shape, batches.shape)
 
         means = means.detach().cpu().numpy()
         stds = stds.detach().cpu().numpy()
@@ -174,3 +191,19 @@ if __name__ == '__main__':
         logging.info(f'Final means: {final_means!r}')
         logging.info(f'Final stds: {final_stds!r}')
         logging.info(f'Total count: {total_count!r}')
+
+        with TemporaryDirectory() as upload_dir:
+            with open(os.path.join(upload_dir, 'normalize.json'), 'w') as f:
+                json.dump({
+                    'mean': final_means.tolist(),
+                    'std': final_stds.tolist(),
+                    'total': total_count.item(),
+                }, f, sort_keys=True, indent=4, ensure_ascii=False)
+
+            upload_directory_as_directory(
+                repo_id=repository,
+                repo_type='dataset',
+                local_directory=upload_dir,
+                path_in_repo='.',
+                message=f'Calculate mean ({final_means!r}) and std ({final_stds!r}) for dataset'
+            )
