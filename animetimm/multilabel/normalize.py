@@ -132,11 +132,17 @@ if __name__ == '__main__':
     accelerator.wait_for_everyone()
 
     means, stds, batches = [], [], []
-    for i, inputs in enumerate(tqdm(dataloader, disable=not accelerator.is_local_main_process,
-                                    desc=f'Train on Rank #{accelerator.process_index}')):
+    for i, inputs in enumerate(tqdm(
+            dataloader,
+            # disable=not accelerator.is_local_main_process,
+            disable=False,
+            desc=f'Train on Rank #{accelerator.process_index}'
+    )):
         means.append(inputs.mean(dim=(0, 2, 3)))
         stds.append(inputs.std(dim=(0, 2, 3)))
         batches.append(inputs.shape[0])
+        if i % 20 == 0:
+            accelerator.wait_for_everyone()
 
     means = torch.stack(means)
     stds = torch.stack(stds)
