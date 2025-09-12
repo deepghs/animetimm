@@ -1,10 +1,8 @@
 from typing import Literal, Optional, Sequence, List
 
 import timm
-import torch
 from ditk import logging
 from timm.data import MaybeToTensor
-from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize, Compose
 
 from .augmentation import create_transforms
@@ -77,28 +75,13 @@ def load_dataloader(repo_id: str, model_name: str = 'caformer_s36.sail_in22k_ft_
         seen_tag_keys=seen_tag_keys,
         image_key=image_key,
     )
-
-    def collate_fn(examples):
-        images = []
-        for example in examples:
-            images.append((example["image"]))
-
-        pixel_values = torch.stack(images)
-        return pixel_values
-
-    dataloader = DataLoader(
-        dataset,
-        collate_fn=collate_fn,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=split == 'train',
-        drop_last=split == 'train',
-    )
-    return dataloader
+    return dataset, trans
 
 
 if __name__ == '__main__':
-    dataloader = load_dataloader(repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-full')
-    for x in enumerate(dataloader):
-        print(x.shape)
-        quit()
+    dataset, transform = load_dataloader(repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-full')
+    print(dataset)
+    print(transform)
+    # for x in enumerate(dataloader):
+    #     print(x.shape)
+    #     quit()
