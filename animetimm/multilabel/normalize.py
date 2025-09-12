@@ -146,6 +146,7 @@ def cli(num_workers, batch_size, repository, splits):
             is_main_process=accelerator.is_main_process,
             batch_size=batch_size,
             num_workers=num_workers,
+            split=split,
         )
         dataloader = accelerator.prepare(dataloader)
         logging.info(f'Worker #{accelerator.process_index} ready for running split {split!r} ...')
