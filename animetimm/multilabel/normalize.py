@@ -133,7 +133,7 @@ if __name__ == '__main__':
     for i, inputs in enumerate(tqdm(dataloader, disable=not accelerator.is_local_main_process,
                                     desc=f'Train on Rank #{accelerator.process_index}')):
         means.append(inputs.mean(dim=(0, 2, 3)))
-        stds.append(inputs.mean(dim=(0, 2, 3)))
+        stds.append(inputs.std(dim=(0, 2, 3)))
         batches.append(inputs.shape[0])
 
     means = torch.stack(means)
