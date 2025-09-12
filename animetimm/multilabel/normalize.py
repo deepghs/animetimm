@@ -199,7 +199,6 @@ def cli(num_workers, batch_size, repository, splits):
                 json.dump({
                     'mean': final_means.tolist(),
                     'std': final_stds.tolist(),
-                    'total': total_count.item(),
                 }, f, sort_keys=True, indent=4, ensure_ascii=False)
 
             upload_directory_as_directory(
