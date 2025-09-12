@@ -4,6 +4,7 @@ import timm
 from ditk import logging
 from timm.data import MaybeToTensor
 from torchvision.transforms import Normalize, Compose
+from tqdm import tqdm
 
 from .augmentation import create_transforms
 from .dataset import load_dataset
@@ -80,14 +81,15 @@ def load_dataloader(repo_id: str, model_name: str = 'caformer_s36.sail_in22k_ft_
 
 if __name__ == '__main__':
     dataset, transform = load_dataloader(repo_id='animetimm/danbooru-wdtagger-v4-w640-ws-full')
-    for sample in dataset:
-        image = sample['webp']
-        print(image)
-        print(transform(image).shape)
-        quit()
-
     print(dataset)
     print(transform)
+    means, stds = [], []
+    for sample in enumerate(tqdm(dataset, desc='Scanning ALL samples')):
+        image = sample['webp']
+        data = transform(image)
+        means.append(data.mean(dim=(1, 2)))
+        stds.append(data.std(dim=(1, 2)))
+
     # for x in enumerate(dataloader):
     #     print(x.shape)
     #     quit()
