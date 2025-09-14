@@ -32,6 +32,7 @@ from timm.models._hub import save_for_hf
 from torchvision.transforms import Compose
 
 from .augmentation import create_transforms
+from .dataset import _get_normalize_from_repo_id
 from .test import test
 from ..dataset import load_pretrained_tag
 from ..model import Model
@@ -120,6 +121,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
         meta_info['type'] = 'multilabel'
 
         dataset_repo_id = meta_info['train']['dataset']
+        use_normalize = meta_info['train'].get('use_normalize', False) or False
         checkpoints = os.path.join(workdir, 'checkpoints')
         best_ckpt_zip_file = os.path.join(checkpoints, 'best.zip')
         logging.info(f'Loading model from {best_ckpt_zip_file!r} ...')
@@ -193,6 +195,10 @@ def export(workdir: str, repo_id: Optional[str] = None,
 
         transforms_file = os.path.join(upload_dir, 'preprocess.json')
         logging.info(f'Dumping preprocessors to {transforms_file!r} ...')
+        if use_normalize:
+            mean, std = _get_normalize_from_repo_id(repo_id=dataset_repo_id)
+        else:
+            mean, std = None, None
         with open(transforms_file, 'w') as f:
             eval_trans, _ = create_transforms(
                 timm_model=model.module,
@@ -206,6 +212,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 random_resize_method=False,
                 pre_align=meta_info['train']['pre_align'],
                 align_size=meta_info['train']['align_size'],
+                mean=mean,
+                std=std,
             )
             logging.info(f'Eval transform:\n{eval_trans}')
 
@@ -221,6 +229,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                 random_resize_method=False,
                 pre_align=meta_info['train']['pre_align'],
                 align_size=meta_info['train']['align_size'],
+                mean=mean,
+                std=std,
             )
             logging.info(f'Test transform:\n{eval_trans}')
 

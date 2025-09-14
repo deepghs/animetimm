@@ -55,6 +55,7 @@ def train(
         image_key: str = 'webp',
         use_pretrained_weight: bool = True,
         adam_betas: Optional[Tuple[float, float]] = None,
+        use_normalize: bool = False,
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -149,6 +150,7 @@ def train(
         'image_key': image_key,
         'use_pretrained_weight': use_pretrained_weight,
         'adam_betas': adam_betas,
+        'use_normalize': use_normalize,
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -180,6 +182,7 @@ def train(
         categories=tag_categories,
         seen_tag_keys=seen_tag_keys,
         image_key=image_key,
+        use_normalize=use_normalize,
     )
     eval_dataloader = load_dataloader(
         repo_id=dataset_repo_id,
@@ -193,6 +196,7 @@ def train(
         categories=tag_categories,
         seen_tag_keys=seen_tag_keys,
         image_key=image_key,
+        use_normalize=use_normalize,
     )
 
     loss_fn = BCEWithLogitsLoss(reduction='none')
@@ -489,11 +493,13 @@ def train(
               show_default=True)
 @click.option('--adam-betas', '--betas', 'adam_betas', callback=parse_tuple, default=None,
               help='Beta values for adam-like optimizers.', show_default=True)
+@click.option('--use_normalize', '-un', 'use_normalize', is_flag=True, type=bool, default=False,
+              help='Use normalize value from dataset repository.', show_default=True)
 def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio, mixup_alpha,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
         tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg, image_key, suffix, use_pretrained_weight,
-        adam_betas):
+        adam_betas, use_normalize):
     logging.try_init_root(logging.INFO)
 
     rmn = model_name.replace('/', '_').replace(':', '_').replace('\\', '_')
@@ -544,6 +550,7 @@ def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, 
         image_key=image_key,
         use_pretrained_weight=use_pretrained_weight,
         adam_betas=adam_betas,
+        use_normalize=use_normalize,
     )
 
 

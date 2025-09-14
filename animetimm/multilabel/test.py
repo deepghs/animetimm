@@ -38,6 +38,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
     image_key = meta_info['train'].get('image_key') or 'webp'
     tag_categories = tag_categories or meta_info['train'].get('tag_categories')
     seen_tag_keys = seen_tag_keys or meta_info['train'].get('seem_tag_keys') or meta_info['train'].get('seen_tag_keys')
+    use_normalize = meta_info['train'].get('use_normalize', False) or False
     logging.info(f'Tags categories: {tag_categories!r}, seen tag keys: {seen_tag_keys!r}')
 
     tags_info = load_tags(repo_id=dataset_repo_id, categories=tag_categories)
@@ -84,6 +85,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         seen_tag_keys=seen_tag_keys,
         image_key=image_key,
         use_test_size_when_test=use_test_size,
+        use_normalize=use_normalize,
     )
 
     module, test_dataloader = accelerator.prepare(module, test_dataloader)

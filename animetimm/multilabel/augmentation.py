@@ -1,3 +1,5 @@
+from typing import Optional, List
+
 import timm
 import torchvision.transforms as transforms
 from imgutils.preprocess.torchvision import PadToSize
@@ -11,10 +13,15 @@ from ..augmentation import RandomResizeMethod, MixupTransform, NothingChange, Cu
 def create_transforms(timm_model, is_training: bool = False, use_test_size: bool = False,
                       noise_level: int = 2, rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
                       cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
-                      pre_align: bool = True, align_size: int = 512):
+                      pre_align: bool = True, align_size: int = 512,
+                      mean: Optional[List[float]] = None, std: Optional[List[float]] = None):
     config = resolve_data_config({}, model=timm_model, use_test_size=use_test_size)
     image_size = config['input_size'][-2]
     transform_list = []
+    if mean is not None:
+        config['mean'] = mean
+    if std is not None:
+        config['std'] = std
 
     if is_training:
         if noise_level >= 1:

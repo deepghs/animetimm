@@ -1,11 +1,13 @@
+import json
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Literal, Sequence
+from typing import Dict, List, Optional, Literal, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
 from datasets import load_dataset as _timm_load_dataset
 from ditk import logging
+from hfutils.operate import get_hf_client
 from huggingface_hub import hf_hub_download
 from imgutils.data import load_image
 from timm import create_model
@@ -48,14 +50,41 @@ def load_dataset(repo_id: str, split: str = 'train', transforms: Optional = None
     return dataset
 
 
+def _get_normalize_from_repo_id(repo_id: str) -> Tuple[Optional[List[float]], Optional[List[float]]]:
+    hf_client = get_hf_client()
+    if hf_client.file_exists(
+            repo_id=repo_id,
+            repo_type='dataset',
+            filename='normalize.json'
+    ):
+        with open(hf_client.hf_hub_download(
+                repo_id=repo_id,
+                repo_type='dataset',
+                filename='normalize.json'
+        ), 'r') as f:
+            d_normalize = json.load(f)
+        mean, std = d_normalize['mean'], d_normalize['std']
+    else:
+        mean, std = None, None
+
+    return mean, std
+
+
 def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'validation'] = 'train',
                     batch_size: int = 256, num_workers: int = 128, noise_level: int = 2,
                     rotation_ratio: float = 0.25, mixup_alpha: float = 0.2,
                     cutout_max_pct: float = 0.25, cutout_patches: int = 1, random_resize_method: bool = True,
                     pre_align: bool = True, align_size: int = 512, is_main_process: bool = True,
                     image_key: str = 'webp', use_test_size_when_test: bool = True,
-                    categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None):
+                    categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None,
+                    use_normalize: bool = False):
     from .augmentation import create_transforms
+
+    if use_normalize:
+        mean, std = _get_normalize_from_repo_id(repo_id)
+    else:
+        mean, std = None, None
+
     trans, post_trans = create_transforms(
         timm_model=model,
         is_training=split == 'train',
@@ -68,6 +97,8 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
         random_resize_method=random_resize_method,
         pre_align=pre_align,
         align_size=align_size,
+        mean=mean,
+        std=std,
     )
     if is_main_process:
         logging.info(f'Transforms loaded (for {split}):\n{trans}')
