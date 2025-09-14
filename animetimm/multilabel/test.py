@@ -126,6 +126,9 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             all_samples.append(torch.sigmoid(outputs).cpu())
             all_labels.append(labels_.cpu())
 
+            if i % 10 == 0:
+                accelerator.wait_for_everyone()
+
         logging.info(f'Inference ready for #{accelerator.process_index}.')
         accelerator.wait_for_everyone()
 
