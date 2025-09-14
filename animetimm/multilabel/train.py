@@ -516,7 +516,8 @@ def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, 
     pre_align_mark = f'_p{align_size}' if pre_align else ''
     pretrained_tag = load_pretrained_tag(dataset_repo_id)
     workdir = workdir or f'runs/{rmn}_{pretrained_tag}_bs{batch_size}{pre_align_mark}' \
-                         f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}{f"_{suffix}" if suffix else ""}'
+                         f'_d{drop_path_rate}_mep{max_epochs}{size_suffix}{f"_{suffix}" if suffix else ""}' \
+                         f'{"_norm" if use_normalize else ""}'
     logging.info(f'Training on dataset {dataset_repo_id!r}, workdir: {workdir!r}.')
 
     tag_categories_seq = list(tag_categories) if tag_categories else None
