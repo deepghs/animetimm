@@ -1,10 +1,11 @@
 import json
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Literal, Sequence, Tuple
+from typing import Dict, List, Optional, Literal, Sequence, Tuple, Callable
 
 import numpy as np
 import pandas as pd
 import torch
+from PIL import Image
 from datasets import load_dataset as _timm_load_dataset
 from ditk import logging
 from hfutils.operate import get_hf_client
@@ -22,12 +23,19 @@ _DEFAULT_KEYS = [
 
 
 def load_dataset(repo_id: str, split: str = 'train', transforms: Optional = None, image_key: str = 'webp',
-                 categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None):
+                 categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None,
+                 row_level_preprocess: Optional[Callable[[Image.Image, dict], Tuple[Image.Image, dict]]] = None):
     dataset = _timm_load_dataset(repo_id, split=split)
     tags_info = load_tags(repo_id, categories=categories)
     tags_to_id = tags_info.tags_to_id
+    row_level_preprocess = row_level_preprocess or (lambda x, y: (x, y))
 
     def _trans(row):
+        if row_level_preprocess is not None:
+            for i, (image, json_) in enumerate(zip(row[image_key], row['json'])):
+                image, json_ = row_level_preprocess(image, json_)
+                row[image_key][i], row['json'][i] = image, json_
+
         images = []
         for image in row[image_key]:
             image = load_image(image, force_background='white', mode='RGB')
@@ -77,7 +85,9 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
                     pre_align: bool = True, align_size: int = 512, is_main_process: bool = True,
                     image_key: str = 'webp', use_test_size_when_test: bool = True,
                     categories: Optional[Sequence[int]] = None, seen_tag_keys: Optional[List[str]] = None,
-                    use_normalize: bool = False):
+                    use_normalize: bool = False,
+                    row_level_augmentation: Optional[Callable[[Image.Image, dict], Tuple[Image.Image, dict]]] = None,
+                    row_level_preprocess: Optional[Callable[[Image.Image, dict], Tuple[Image.Image, dict]]] = None):
     from .augmentation import create_transforms
 
     if use_normalize:
@@ -106,6 +116,15 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
 
     if is_main_process:
         logging.info(f'Loading dataset from {repo_id!r} (for {split}) ...')
+    row_level_augmentation = row_level_augmentation or (lambda x, y: (x, y))
+    row_level_preprocess = row_level_preprocess or (lambda x, y: (x, y))
+    if split == 'train':
+        def _preprocess(x, y):
+            x, y = row_level_preprocess(x, y)
+            x, y = row_level_augmentation(x, y)
+            return x, y
+    else:
+        _preprocess = row_level_preprocess
     dataset = load_dataset(
         repo_id=repo_id,
         split=split,
@@ -113,6 +132,7 @@ def load_dataloader(repo_id: str, model, split: Literal['train', 'test', 'valida
         categories=categories,
         seen_tag_keys=seen_tag_keys,
         image_key=image_key,
+        row_level_preprocess=_preprocess,
     )
 
     def collate_fn(examples):
