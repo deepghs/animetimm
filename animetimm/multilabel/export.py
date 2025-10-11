@@ -105,7 +105,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
            visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
            logfile_anonymous: bool = True, append_tags: Optional[List[str]] = None,
            title: Optional[str] = None, description: Optional[str] = None, license: str = 'mit',
-           onnx_opset_version: int = 14, no_onnx_export: bool = False):
+           onnx_opset_version: int = 14, no_onnx_export: bool = False, namespace: str = 'animetimm'):
     if os.path.exists(os.path.join(workdir, 'test_options.json')):
         with open(os.path.join(workdir, 'test_options.json'), 'r') as f:
             test_config_info = json.load(f)
@@ -140,7 +140,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
         model.pretrained_tag = pretrained_tag
 
         model_name = '.'.join([model.architecture, pretrained_tag, *append_tags])
-        repo_id = repo_id or f'animetimm/{model_name}'
+        repo_id = repo_id or f'{namespace}/{model_name}'
         logging.info(f'Target repository: {repo_id!r}.')
         if not hf_client.repo_exists(repo_id=repo_id, repo_type='model'):
             hf_client.create_repo(repo_id=repo_id, repo_type='model', private=visibility == 'private')
@@ -660,9 +660,11 @@ def export(workdir: str, repo_id: Optional[str] = None,
               help='OpSet Version of ONNX Export.', show_default=True)
 @click.option('--no-onnx-export', 'no_onnx_export', is_flag=True, default=False, type=bool,
               help='No ONNX model to export, just save the weights.', show_default=True)
+@click.option('-ns', '--namespace', 'namespace', default='animetimm', type=str, show_default=True,
+              help='Namespace for the publish repository')
 def cli(workdir, num_workers, batch_size, test_threshold, tag_categories, seen_tag_keys, force, need_metrics,
         repository, visibility, tags, title, description, use_test_size, license, onnx_opset_version,
-        no_onnx_export):
+        no_onnx_export, namespace):
     logging.try_init_root(logging.INFO)
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -696,6 +698,7 @@ def cli(workdir, num_workers, batch_size, test_threshold, tag_categories, seen_t
             license=license,
             onnx_opset_version=onnx_opset_version,
             no_onnx_export=no_onnx_export,
+            namespace=namespace,
         )
 
 
