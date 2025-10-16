@@ -140,7 +140,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
         logging.info(f'Pretrained tag {pretrained_tag!r} found for dataset {dataset_repo_id!r}.')
         model.pretrained_tag = pretrained_tag
 
-        model_name = '.'.join([model.architecture, pretrained_tag, *append_tags])
+        architecture = model.architecture
+        model_name = '.'.join([architecture, pretrained_tag, *append_tags])
         repo_id = repo_id or f'{namespace}/{model_name}'
         logging.info(f'Target repository: {repo_id!r}.')
         if not hf_client.repo_exists(repo_id=repo_id, repo_type='model'):
@@ -635,7 +636,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'  howpublished = {{\\url{{{hf_hub_repo_url(repo_id=repo_id, repo_type="model")}}}}},',
                   file=f)
             print(f'  note         = {{A large-scale anime-style image classification model '
-                  f'based on {model.architecture} architecture '
+                  f'based on {architecture} architecture '
                   f'for multi-label tagging with {len(df_tags)} tags, trained on anime dataset {pretrained_tag} '
                   f'(\\url{{{hf_hub_repo_url(repo_id=dataset_repo_id, repo_type="dataset")}}}). '
                   f'Model parameters: {s_params}, FLOPs: {s_flops}, '
