@@ -631,9 +631,13 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'  year         = {{{datetime.datetime.now().year}}},', file=f)
             print(f'  howpublished = {{\\url{{{hf_hub_repo_url(repo_id=repo_id, repo_type="model")}}}}},',
                   file=f)
-            print(
-                f'  note         = {{A large-scale anime-style image classification model based on EVA02-Large architecture, fine-tuned on Danbooru dataset for multi-label tagging with 12,476 tags including general, character, and rating categories. Model parameters: 316.8M, input resolution: 448×448.}},',
-                file=f)
+            print(f'  note         = {{A large-scale anime-style image classification model '
+                  f'based on {model.architecture} architecture '
+                  f'for multi-label tagging with {len(df_tags)} tags, trained on anime dataset {pretrained_tag} '
+                  f'(\\url{{{hf_hub_repo_url(repo_id=dataset_repo_id, repo_type="dataset")}}}). '
+                  f'Model parameters: {s_params}, FLOPs: {s_flops}, '
+                  f'input resolution: {dummy_input_test.shape[-1]}×{dummy_input_test.shape[-2]}.}},',
+                  file=f)
             print(f'  license      = {{{license}}}', file=f)
             print(f'}}', file=f)
 
