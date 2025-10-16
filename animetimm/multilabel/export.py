@@ -625,6 +625,9 @@ def export(workdir: str, repo_id: Optional[str] = None,
                       file=f)
                 print(f'', file=f)
 
+            print(f'## Citation', file=f)
+            print(f'', file=f)
+            print(f'```', file=f)
             print(f'@misc{{{_name_safe(repo_id.split("/")[-1])},', file=f)
             print(f'  title        = {{{title}}},', file=f)
             print(f'  author       = {{narugo1992 and Deep Generative anime Hobbyist Syndicate (DeepGHS)}},', file=f)
@@ -640,6 +643,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                   file=f)
             print(f'  license      = {{{license}}}', file=f)
             print(f'}}', file=f)
+            print(f'```', file=f)
+            print(f'', file=f)
 
         upload_directory_as_directory(
             repo_id=repo_id,
