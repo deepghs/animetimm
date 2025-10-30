@@ -106,7 +106,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
            visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
            logfile_anonymous: bool = True, append_tags: Optional[List[str]] = None,
            title: Optional[str] = None, description: Optional[str] = None, license: str = 'mit',
-           onnx_opset_version: int = 18, no_onnx_export: bool = False, namespace: str = 'animetimm'):
+           onnx_opset_version: int = 14, no_onnx_export: bool = False, namespace: str = 'animetimm'):
     if os.path.exists(os.path.join(workdir, 'test_options.json')):
         with open(os.path.join(workdir, 'test_options.json'), 'r') as f:
             test_config_info = json.load(f)
@@ -679,7 +679,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
               show_default=True)
 @click.option('-l', '--licence', '--license', 'license', type=click.Choice(VALID_LICENCES), default='mit',
               help='Licence for repository.', show_default=True)
-@click.option('-opv', '--onnx-opset-version', 'onnx_opset_version', default=18, type=int,
+@click.option('-opv', '--onnx-opset-version', 'onnx_opset_version', default=14, type=int,
               help='OpSet Version of ONNX Export.', show_default=True)
 @click.option('--no-onnx-export', 'no_onnx_export', is_flag=True, default=False, type=bool,
               help='No ONNX model to export, just save the weights.', show_default=True)

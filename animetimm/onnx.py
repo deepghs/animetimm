@@ -29,7 +29,7 @@ class ExportedONNXNotUniqueError(Exception):
 def export_model_to_onnx(model: Model, dummy_input: torch.Tensor, onnx_filename: str,
                          metadata: Optional[Dict[str, Any]] = None,
                          wrap_mode: Literal['softmax', 'sigmoid'] = 'softmax',
-                         verbose: bool = True, opset_version: int = 18, no_optimize: bool = False):
+                         verbose: bool = True, opset_version: int = 14, no_optimize: bool = False):
     metadata = dict(metadata or {})
     module = model.module
     module = module.float()

@@ -1,12 +1,12 @@
 timm
 torchvision
 dghs-imgutils>=0.17.0
-torch>=2.6.0
+torch>=2.6.0,<2.9.0
 pillow
 numpy
 scipy
 matplotlib
-huggingface_hub
+huggingface_hub<1
 hfutils>=0.11
 hbutils
 datasets>=3.5.0
