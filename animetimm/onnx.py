@@ -59,7 +59,8 @@ def export_model_to_onnx(model: Model, dummy_input: torch.Tensor, onnx_filename:
         if os.listdir(td) != [os.path.basename(onnx_model_file)]:
             raise ExportedONNXNotUniqueError(
                 'Exported ONNX model expected to be a unique file, '
-                f'but {plural_word(len(os.listdir(td)), "file")} found.')
+                f'but {plural_word(len(os.listdir(td)), "file")} found - '
+                f'{os.listdir(td)!r}.')
 
         model = onnx.load(onnx_model_file)
         if not no_optimize:
