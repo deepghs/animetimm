@@ -36,7 +36,7 @@ def export(workdir: str, repo_id: Optional[str] = None,
            visibility: Literal['private', 'public', 'gated', 'manual'] = 'private',
            logfile_anonymous: bool = True, append_tags: Optional[List[str]] = None,
            title: Optional[str] = None, description: Optional[str] = None, license: str = 'mit',
-           onnx_opset_version: int = 14, no_onnx_export: bool = False):
+           onnx_opset_version: int = 18, no_onnx_export: bool = False):
     if os.path.exists(os.path.join(workdir, 'test_options.json')):
         with open(os.path.join(workdir, 'test_options.json'), 'r') as f:
             test_config_info = json.load(f)
