@@ -124,6 +124,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
         meta_info['type'] = 'multilabel'
 
         dataset_repo_id = meta_info['train']['dataset']
+        if hf_client.repo_exists(repo_id=dataset_repo_id, repo_type='dataset'):
+            dataset_repo_id = hf_client.repo_info(repo_id=dataset_repo_id, repo_type='dataset').id
         use_normalize = meta_info['train'].get('use_normalize', False) or False
         checkpoints = os.path.join(workdir, 'checkpoints')
         best_ckpt_zip_file = os.path.join(checkpoints, 'best.zip')
@@ -320,6 +322,8 @@ def export(workdir: str, repo_id: Optional[str] = None,
                     'base_model') or []
                 if base_models:
                     base_model_repo_id = base_models[0]
+            if base_model_repo_id and hf_client.repo_exists(repo_id=base_model_repo_id, repo_type='model'):
+                base_model_repo_id = hf_client.repo_info(repo_id=base_model_repo_id, repo_type='model').id
 
             print(f'---', file=f)
             print(f'tags:', file=f)
@@ -330,10 +334,12 @@ def export(workdir: str, repo_id: Optional[str] = None,
             print(f'- dghs-imgutils', file=f)
             print(f'library_name: timm', file=f)
             print(f'license: {license}', file=f)
-            print(f'datasets:', file=f)
-            print(f'- {dataset_repo_id}', file=f)
-            print(f'base_model:', file=f)
-            print(f'- {base_model_repo_id}', file=f)
+            if dataset_repo_id:
+                print(f'datasets:', file=f)
+                print(f'- {dataset_repo_id}', file=f)
+            if base_model_repo_id:
+                print(f'base_model:', file=f)
+                print(f'- {base_model_repo_id}', file=f)
             print(f'---', file=f)
             print(f'', file=f)
 
