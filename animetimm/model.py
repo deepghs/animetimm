@@ -20,6 +20,36 @@ from timm import create_model as _timm_create_model
 from timm.models import parse_model_name, split_model_name_tag, load_model_config_from_hf
 from torch import nn
 
+# Some timm architectures reject specific kwargs that animetimm always passes:
+# MobileNet/RepViT reject ``img_size``, RepViT also rejects ``drop_path_rate``.
+# :func:`_create_timm_with_fallback` parses the TypeError to identify the specific
+# kwarg that was rejected and strips only that one, so an unrelated kwarg never
+# gets dropped by accident.
+_OPTIONAL_TIMM_KWARGS: Tuple[str, ...] = ('img_size', 'drop_path_rate')
+
+
+def _create_timm_with_fallback(*, model_name: str, pretrained: bool,
+                               model_args: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
+    attempt = dict(model_args)
+    while True:
+        try:
+            module = _timm_create_model(model_name=model_name, pretrained=pretrained, **attempt)
+            return module, attempt
+        except TypeError as exc:
+            msg = str(exc)
+            stripped = None
+            for key in _OPTIONAL_TIMM_KWARGS:
+                if key in attempt and f"'{key}'" in msg:
+                    del attempt[key]
+                    stripped = key
+                    break
+            if stripped is None:
+                raise
+            logging.warning(
+                f'Model {model_name!r} does not accept kwarg {stripped!r} '
+                f'({exc}); stripping it and retrying.'
+            )
+
 
 @dataclass
 class Model:
@@ -76,32 +106,23 @@ class Model:
         self.pretrained_cfg['tag'] = new_tag
 
     def get_actual_model_args(self) -> dict:
-        model_args = copy.deepcopy(self.model_args)
-        try:
-            _ = _timm_create_model(model_name=self.model_name, pretrained=False, **model_args)
-        except TypeError:
-            if 'img_size' in model_args:  # for some model dont support img_size (like mobilenet)
-                del model_args['img_size']
-                _ = _timm_create_model(model_name=self.model_name, pretrained=False, **model_args)
-            else:
-                raise
-
-        return model_args
+        _, used_args = _create_timm_with_fallback(
+            model_name=self.model_name,
+            pretrained=False,
+            model_args=copy.deepcopy(self.model_args),
+        )
+        return used_args
 
     @classmethod
     def new(cls, model_name: str, tags: List[str], pretrained: bool = True,
             model_args: Optional[dict] = None, pretrained_cfg: Optional[dict] = None):
         model_args = dict(model_args or {})
         pretrained_cfg = dict(pretrained_cfg or {})
-        try:
-            model = _timm_create_model(model_name=model_name, pretrained=pretrained, **model_args)
-        except TypeError:
-            if 'img_size' in model_args:  # for some model dont support img_size (like mobilenet)
-                _model_args = copy.deepcopy(model_args)
-                del _model_args['img_size']
-                model = _timm_create_model(model_name=model_name, pretrained=pretrained, **_model_args)
-            else:
-                raise
+        model, _ = _create_timm_with_fallback(
+            model_name=model_name,
+            pretrained=pretrained,
+            model_args=model_args,
+        )
         if model.num_classes != len(tags):
             model.reset_classifier(len(tags))
         model.pretrained_cfg.update(pretrained_cfg)
