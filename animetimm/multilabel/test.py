@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from .dataset import load_tags, load_dataloader
 from .metrics import mcc, f1score, precision, recall, compute_optimal_thresholds, \
-    compute_optimal_thresholds_by_categories
+    compute_optimal_thresholds_by_categories, StreamingThresholdHistogram
 from ..dataset import load_pretrained_tag
 from ..model import Model
 from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version
@@ -108,16 +108,18 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         macro_tn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
         macro_fn = torch.zeros((1, len(tags_info.tags),), device=accelerator.device)
 
-        all_samples = []
-        all_labels = []
+        # folds every batch into a (num_thresholds + 1, tag_num) counter instead of
+        # keeping the full (sample_num, tag_num) score/label matrices around
+        threshold_histogram = StreamingThresholdHistogram(len(tags_info.tags), device=accelerator.device)
 
         for i, (inputs, labels_) in enumerate(tqdm(test_dataloader, disable=not accelerator.is_main_process)):
             inputs = inputs.float()
             labels_ = labels_
 
             outputs = module(inputs)
+            scores = torch.sigmoid(outputs)
             labels = labels_ > test_threshold
-            preds = torch.sigmoid(outputs) > test_threshold
+            preds = scores > test_threshold
             micro_tp += ((preds == 1) & (labels == 1)).sum().item()
             micro_fp += ((preds == 1) & (labels == 0)).sum().item()
             micro_tn += ((preds == 0) & (labels == 0)).sum().item()
@@ -127,8 +129,7 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
             macro_tn += ((preds == 0) & (labels == 0)).sum(dim=0)
             macro_fn += ((preds == 0) & (labels == 1)).sum(dim=0)
 
-            all_samples.append(torch.sigmoid(outputs))
-            all_labels.append(labels_)
+            threshold_histogram.update(scores, labels_)
 
             if i % 10 == 0:
                 accelerator.wait_for_everyone()
@@ -136,19 +137,13 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
         logging.info(f'Inference ready for #{accelerator.process_index}.')
         accelerator.wait_for_everyone()
 
-        all_samples = torch.concat(all_samples, dim=0)
-        all_labels = torch.concat(all_labels, dim=0)
-        all_samples = accelerator.gather(all_samples).cpu()
-        all_labels = accelerator.gather(all_labels).cpu()
-        # all_samples, all_labels = accelerator.gather_for_metrics((all_samples, all_labels))
+        # reduces two (num_thresholds + 1, tag_num) counters instead of all-gathering
+        # the raw score and label matrices
+        histograms = threshold_histogram.finalize(accelerator=accelerator)
         if accelerator.is_main_process:
-            logging.info(f'Gathered all_samples, shape: {all_samples.shape!r}, '
-                         f'dtype: {all_samples.dtype!r}, device: {all_samples.device!r}')
-            logging.info(f'Gathered all_labels, shape: {all_labels.shape!r}, '
-                         f'dtype: {all_labels.dtype!r}, device: {all_labels.device!r}')
-
-        # print((torch.isclose(all_labels, 1.0) | torch.isclose(all_labels, 0.0)).all())
-        # quit()
+            logging.info(f'Threshold histograms reduced, shape: {histograms[0].shape!r}, '
+                         f'samples counted: {int(histograms[0][0].sum())!r}, '
+                         f'positives counted: {int(histograms[1].sum())!r}')
 
         # micro_tp = micro_tp.sum(dim=0)
         # micro_fp = micro_fp.sum(dim=0)
@@ -172,11 +167,11 @@ def test(workdir: str, num_workers: int = 32, batch_size: int = 32, test_thresho
 
         if accelerator.is_main_process:
             best_thresholds, best_f1, best_precision, best_recall = \
-                compute_optimal_thresholds(all_samples, all_labels, alpha=1.0, max_workers=32)
+                compute_optimal_thresholds(alpha=1.0, histograms=histograms)
 
             c_best_thresholds, c_best_f1, c_best_precision, c_best_recall = \
-                compute_optimal_thresholds_by_categories(all_samples, all_labels, tags_info.df, alpha=1.0,
-                                                         max_workers=8)
+                compute_optimal_thresholds_by_categories(df_tags=tags_info.df, alpha=1.0,
+                                                         histograms=histograms)
 
             micro_mcc = mcc(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
             micro_f1 = f1score(micro_tp, micro_fp, micro_tn, micro_fn).detach().cpu().item()
