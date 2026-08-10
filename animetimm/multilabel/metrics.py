@@ -95,13 +95,19 @@ def _binarize(labels):
 
 
 def _bound_dtype(sample_dtype: torch.dtype) -> torch.dtype:
-    """Precision to compare scores against thresholds in.
+    """Precision to compare scores against thresholds in: always float64.
 
-    float64 inputs keep full precision, matching what the original numpy comparison did;
-    everything else (float32 in practice, float16 in principle) compares in float32,
-    since a 0.01 grid is not representable well enough in half.
+    The thresholds come from ``np.linspace``, so they are float64 values, and the original
+    scan compared with ``sample >= th`` in numpy, which promotes the float32 scores to
+    float64 before comparing. Bucketizing in float32 instead would round the *thresholds*
+    and flip scores that sit within one float32 ulp of one -- float32(0.03) is
+    0.0299999993, which the original counts as below the 0.03 threshold but a float32
+    comparison counts as at it. Real sigmoid outputs essentially never land there (zero
+    disagreements over 2.5e8 measured scores), but the promotion costs a temporary in the
+    batch being bucketized and removes the discrepancy entirely.
     """
-    return torch.float64 if sample_dtype == torch.float64 else torch.float32
+    _ = sample_dtype
+    return torch.float64
 
 
 def _bin_indices(sample, bounds):
@@ -178,8 +184,10 @@ class StreamingThresholdHistogram:
             raise ValueError(f'Expected {self.tag_num} tags, got {sample.shape[-1]}.')
         if self.hist_all is None:
             self._allocate(sample.device)
-        elif sample.device != self._device:
-            sample, labels = sample.to(self._device), labels.to(self._device)
+        # unconditional rather than guarded: .to() of a tensor already on the target
+        # device returns it unchanged, and a guard here would be a branch that a
+        # CPU-only test run could never reach
+        sample, labels = sample.to(self._device), labels.to(self._device)
 
         bins = _bin_indices(sample, self._bounds_for(sample))
         self.hist_all.scatter_add_(0, bins, self._ones_like_rows(bins.shape[0]))

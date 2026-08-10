@@ -15,6 +15,10 @@ from animetimm.multilabel.metrics import (
     build_threshold_histograms,
     compute_optimal_thresholds,
     compute_optimal_thresholds_by_categories,
+    f1score,
+    mcc,
+    precision,
+    recall,
     threshold_grid,
 )
 
@@ -155,6 +159,160 @@ def assert_all_identical(expected, actual, names=('threshold', 'f1', 'precision'
 
 
 # ------------------------------------------------------------------------- tests
+
+@pytest.mark.unittest
+class TestHandWorkedExamples:
+    """Absolute correctness, not just agreement with the previous implementation.
+
+    Every expected value below is derived by hand in the comments, so these tests would
+    catch an error that the old code and the new code happen to share. They need no GPU,
+    which is the point: correctness is decidable on a CPU-only machine.
+    """
+
+    # 5 samples, 1 tag, K=10 -> thresholds 0.1, 0.2, ... 1.0
+    SCORES = [0.05, 0.15, 0.35, 0.55, 0.95]
+    LABELS = [0, 0, 1, 1, 1]
+
+    def _one_tag(self):
+        return (torch.tensor([[s] for s in self.SCORES], dtype=torch.float32),
+                torch.tensor([[float(v)] for v in self.LABELS], dtype=torch.float32))
+
+    def test_bin_indices_are_the_count_of_thresholds_at_or_below_the_score(self):
+        # bin(s) = #{k : threshold[k] <= s}
+        #   0.05 -> 0 thresholds   0.15 -> 1 (0.1)     0.35 -> 3 (0.1,0.2,0.3)
+        #   0.55 -> 5 (..0.5)      0.95 -> 9 (..0.9)
+        hist_all, hist_pos = build_threshold_histograms(*self._one_tag(), num_thresholds=10)
+        assert {i: int(v) for i, v in enumerate(hist_all[0]) if v} == {0: 1, 1: 1, 3: 1, 5: 1, 9: 1}
+        # only the last three samples are positive
+        assert {i: int(v) for i, v in enumerate(hist_pos[0]) if v} == {3: 1, 5: 1, 9: 1}
+
+    def test_optimal_threshold_matches_the_hand_derivation(self):
+        # th=0.1 -> tp=3 fp=1 fn=0 -> p=3/4 r=1    f1=0.857142...
+        # th=0.2 -> tp=3 fp=0 fn=0 -> p=1   r=1    f1=1.0        <- joint best
+        # th=0.3 -> tp=3 fp=0 fn=0 -> p=1   r=1    f1=1.0        <- joint best
+        # th=0.4 -> tp=2 fp=0 fn=1 -> p=1   r=2/3  f1=0.8
+        # ... decreasing from there, and 0 at th=1.0
+        # the run of identical (f1, p, r) spans 0.2 and 0.3, so the midpoint is 0.25
+        th, f1, p, r = compute_optimal_thresholds(*self._one_tag(), num_thresholds=10)
+        assert th[0] == pytest.approx(0.25)
+        assert f1[0] == pytest.approx(1.0)
+        assert p[0] == pytest.approx(1.0)
+        assert r[0] == pytest.approx(1.0)
+
+    def test_tie_run_spanning_many_thresholds_takes_the_midpoint(self):
+        # one positive sample scoring 0.95: every threshold from 0.1 to 0.9 predicts it
+        # correctly (f1 = 1.0), and 1.0 misses it (f1 = 0). The run is 0.1 .. 0.9, so the
+        # midpoint is (0.1 + 0.9) / 2 = 0.5
+        samples = torch.tensor([[0.95]], dtype=torch.float32)
+        labels = torch.tensor([[1.0]], dtype=torch.float32)
+        th, f1, _, _ = compute_optimal_thresholds(samples, labels, num_thresholds=10)
+        assert th[0] == pytest.approx(0.5)
+        assert f1[0] == pytest.approx(1.0)
+
+    def test_category_result_is_the_micro_average_over_its_tags(self):
+        # tag0: scores [0.15, 0.35, 0.55], labels [0, 1, 1]
+        # tag1: scores [0.25, 0.45, 0.05], labels [1, 1, 0]
+        # th=0.1 -> tp=4 fp=1 fn=0 -> p=0.8 r=1    f1=0.888...
+        # th=0.2 -> tp=4 fp=0 fn=0 -> p=1   r=1    f1=1.0     <- unique best
+        # th=0.3 -> tp=3 fp=0 fn=1 -> p=1   r=0.75 f1=0.857...
+        samples = torch.tensor([[0.15, 0.25], [0.35, 0.45], [0.55, 0.05]], dtype=torch.float32)
+        labels = torch.tensor([[0.0, 1.0], [1.0, 1.0], [1.0, 0.0]], dtype=torch.float32)
+        df_tags = pd.DataFrame({'category': [7, 7]})
+        th, f1, p, r = compute_optimal_thresholds_by_categories(samples, labels, df_tags,
+                                                                num_thresholds=10)
+        assert th[7] == pytest.approx(0.2)
+        assert f1[7] == pytest.approx(1.0)
+        assert p[7] == pytest.approx(1.0)
+        assert r[7] == pytest.approx(1.0)
+
+    def test_perfect_and_inverted_separation(self):
+        # tag 0 is perfectly separable at 0.5; tag 1 has scores exactly inverted, so no
+        # threshold does better than predicting everything positive
+        samples = torch.tensor([[0.9, 0.1], [0.8, 0.2], [0.2, 0.8], [0.1, 0.9]], dtype=torch.float32)
+        labels = torch.tensor([[1.0, 1.0], [1.0, 1.0], [0.0, 0.0], [0.0, 0.0]], dtype=torch.float32)
+        _, f1, p, r = compute_optimal_thresholds(samples, labels, num_thresholds=10)
+        assert f1[0] == pytest.approx(1.0) and p[0] == pytest.approx(1.0) and r[0] == pytest.approx(1.0)
+        # inverted: best is threshold 0.1, catching both positives plus both negatives,
+        # so tp=2 fp=2 fn=0 -> p=0.5, r=1, f1=2/3
+        assert f1[1] == pytest.approx(2 / 3)
+        assert p[1] == pytest.approx(0.5)
+        assert r[1] == pytest.approx(1.0)
+
+
+@pytest.mark.unittest
+class TestConfusionMetrics:
+    """`mcc`, `f1score`, `precision` and `recall` feed test_metrics.json directly.
+
+    Checked against values worked out by hand, and MCC additionally against the textbook
+    formula, since the implementation uses a rescaled form that is not obviously the same.
+    """
+
+    @staticmethod
+    def counts(tp, fp, tn, fn):
+        return tuple(torch.tensor([float(v)]) for v in (tp, fp, tn, fn))
+
+    def test_precision_recall_f1_by_hand(self):
+        # tp=3 fp=3 tn=4 fn=1
+        args = self.counts(3, 3, 4, 1)
+        assert precision(*args).item() == pytest.approx(3 / 6)
+        assert recall(*args).item() == pytest.approx(3 / 4)
+        assert f1score(*args).item() == pytest.approx(2 * 3 / (2 * 3 + 1 + 3), rel=1e-6)
+
+    def test_mcc_equals_the_textbook_formula(self):
+        for tp, fp, tn, fn in [(3, 3, 4, 1), (10, 2, 50, 8), (1, 0, 99, 0), (25, 25, 25, 25)]:
+            expected = ((tp * tn - fp * fn)
+                        / np.sqrt(float((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))))
+            assert mcc(*self.counts(tp, fp, tn, fn)).item() == pytest.approx(expected, rel=1e-5), \
+                f'tp={tp} fp={fp} tn={tn} fn={fn}'
+
+    def test_perfect_and_worst_case(self):
+        assert mcc(*self.counts(50, 0, 50, 0)).item() == pytest.approx(1.0, rel=1e-5)
+        assert f1score(*self.counts(50, 0, 50, 0)).item() == pytest.approx(1.0, rel=1e-6)
+        # every prediction inverted
+        assert mcc(*self.counts(0, 50, 0, 50)).item() == pytest.approx(-1.0, rel=1e-5)
+
+    def test_alpha_is_beta_squared_not_beta(self):
+        """Locks a quirk worth knowing: `f1score`'s alpha is the *squared* beta of the
+        usual F-beta, while `compute_optimal_thresholds` squares its own alpha. Both are
+        called with alpha=1.0 in this repository, where the two conventions coincide."""
+        args = self.counts(3, 3, 4, 1)   # p = 0.5, r = 0.75
+        p_, r_ = 0.5, 0.75
+        f_beta_sq_4 = (1 + 4) * p_ * r_ / (4 * p_ + r_)
+        f_beta_4 = (1 + 16) * p_ * r_ / (16 * p_ + r_)
+        assert f1score(*args, alpha=4).item() == pytest.approx(f_beta_sq_4, rel=1e-6)
+        assert f1score(*args, alpha=4).item() != pytest.approx(f_beta_4, rel=1e-6)
+
+    @pytest.mark.parametrize('tp,fp,tn,fn', [
+        (0, 0, 10, 0),    # nothing predicted positive, nothing actually positive
+        (0, 10, 0, 0),    # everything predicted positive, nothing actually positive
+        (0, 0, 0, 10),    # nothing predicted positive, everything actually positive
+        (10, 0, 0, 0),    # everything positive and every prediction right
+    ])
+    def test_degenerate_counts_do_not_produce_nan(self, tp, fp, tn, fn):
+        for fn_ in (mcc, f1score, precision, recall):
+            value = fn_(*self.counts(tp, fp, tn, fn)).item()
+            assert not np.isnan(value), f'{fn_.__name__} returned NaN for {(tp, fp, tn, fn)}'
+
+    def test_empty_confusion_matrix_yields_nan_mcc(self):
+        """Documents pre-existing behaviour rather than endorsing it: with no samples at
+        all, `mcc` divides 0 by 0 while the other three return finite values. This is
+        unreachable in `test.py` — micro counts total over every sample and tag, macro
+        counts total over every sample — so it is recorded, not fixed, here."""
+        empty = self.counts(0, 0, 0, 0)
+        assert np.isnan(mcc(*empty).item())
+        for fn_ in (f1score, precision, recall):
+            assert not np.isnan(fn_(*empty).item())
+
+    def test_mean_false_returns_per_entry_values(self):
+        tp = torch.tensor([3.0, 10.0])
+        fp = torch.tensor([3.0, 2.0])
+        tn = torch.tensor([4.0, 50.0])
+        fn = torch.tensor([1.0, 8.0])
+        per_entry = precision(tp, fp, tn, fn, mean=False)
+        assert per_entry.shape == (2,)
+        np.testing.assert_allclose(per_entry.numpy(), [3 / 6, 10 / 12], rtol=1e-6)
+        assert precision(tp, fp, tn, fn).item() == pytest.approx((3 / 6 + 10 / 12) / 2, rel=1e-6)
+
 
 @pytest.mark.unittest
 class TestThresholdGrid:
@@ -463,24 +621,90 @@ class TestScoreDtypes:
         np.testing.assert_array_equal(build_threshold_histograms(samples, labels)[0],
                                       accumulator.finalize()[0])
 
-    def test_float64_input_compares_in_float64(self):
-        """A score just below a threshold in float64, but indistinguishable from it once
-        rounded to float32, must be judged the way the original float64 numpy comparison
-        judged it: below."""
+    @pytest.mark.parametrize('dtype', [torch.float16, torch.bfloat16])
+    def test_half_precision_scores_are_promoted(self, dtype):
+        """Mixed-precision inference can hand back half-precision scores. A 0.01 grid is
+        nowhere near representable in half, so the comparison is promoted; numpy cannot
+        even hold bfloat16, so the old code would have failed outright here."""
+        scores = [0.05, 0.15, 0.35, 0.55, 0.95]
+        labels = [0.0, 0.0, 1.0, 1.0, 1.0]
+        half = torch.tensor([[s] for s in scores], dtype=dtype)
+        half_labels = torch.tensor([[v] for v in labels], dtype=dtype)
+
+        hist_all, hist_pos = build_threshold_histograms(half, half_labels, num_thresholds=10)
+        # same bins as the float32 hand-worked example: rounding to half moves each score
+        # by less than the distance to its neighbouring threshold
+        assert {i: int(v) for i, v in enumerate(hist_all[0]) if v} == {0: 1, 1: 1, 3: 1, 5: 1, 9: 1}
+        assert {i: int(v) for i, v in enumerate(hist_pos[0]) if v} == {3: 1, 5: 1, 9: 1}
+
+        th, f1, _, _ = compute_optimal_thresholds(half, half_labels, num_thresholds=10)
+        assert th[0] == pytest.approx(0.25)
+        assert f1[0] == pytest.approx(1.0)
+
+        # and the streaming path agrees with the offline one on the same input
+        accumulator = StreamingThresholdHistogram(1, num_thresholds=10)
+        accumulator.update(half, half_labels)
+        np.testing.assert_array_equal(hist_all, accumulator.finalize()[0])
+
+    def test_half_promotion_changes_a_boundary_score(self):
+        """Pins the promotion down with a score the precisions disagree about.
+
+        float16 rounds 0.1 *down* to 0.099975..., below the true 0.1 threshold, so a score
+        sitting exactly on the half representation of the first threshold falls below it
+        once promoted, and lands in bin 0. Comparing in half would put it in bin 1.
+        """
+        boundary = float(np.float16(0.1))
+        assert boundary < 0.1
+
+        scores = torch.tensor([[boundary]], dtype=torch.float16)
+        labels = torch.ones((1, 1), dtype=torch.float16)
+        hist_all, _ = build_threshold_histograms(scores, labels, num_thresholds=10)
+        assert int(np.argmax(hist_all[0])) == 0
+
+        accumulator = StreamingThresholdHistogram(1, num_thresholds=10)
+        accumulator.update(scores, labels)
+        assert int(np.argmax(accumulator.finalize()[0][0])) == 0
+
+    def test_float32_scores_are_judged_against_unrounded_thresholds(self):
+        """The thresholds are float64 and the original compared `sample >= th` in numpy,
+        which promotes the float32 score rather than rounding the threshold. Bucketizing
+        in float32 would round the threshold instead and flip scores within one ulp of it:
+        float32(0.03) is 0.0299999993, below the real 0.03, yet not below float32(0.03).
+        """
         grid = threshold_grid(100)
-        edge = grid[6] - 1e-12                       # just under the 0.07 threshold
-        assert edge < grid[6]                        # ... in float64
-        assert np.float32(edge) >= np.float32(grid[6])  # ... but not in float32
+        score = np.float32(grid[2])                   # the float32 image of the 0.03 edge
+        assert float(score) < grid[2]                 # genuinely below the real threshold
+        assert score >= np.float32(grid[2])           # but not below its float32 rounding
 
-        labels = torch.ones((1, 1), dtype=torch.float64)
-        hist_all, _ = build_threshold_histograms(torch.tensor([[edge]], dtype=torch.float64), labels)
-        # the bin counts thresholds <= score, so 0.07 must not be counted
-        assert int(np.argmax(hist_all[0])) == 6
+        samples = torch.tensor([[float(score)]], dtype=torch.float32)
+        hist_all, _ = build_threshold_histograms(samples, torch.ones_like(samples))
+        assert int(np.argmax(hist_all[0])) == 2       # 0.01 and 0.02 only, not 0.03
 
-        # the same value handed in as float32 genuinely is >= the threshold
-        hist32, _ = build_threshold_histograms(torch.tensor([[edge]], dtype=torch.float32),
-                                               labels.to(torch.float32))
-        assert int(np.argmax(hist32[0])) == 7
+    def test_matches_original_numpy_semantics_on_every_threshold_boundary(self):
+        """Sweep four float32 steps either side of every threshold and require the bins to
+        agree with `score.astype(float64) >= thresholds`, which is what the original scan
+        computed."""
+        grid = threshold_grid(100)
+        edge = []
+        for th in grid:
+            v = np.float32(th)
+            for _ in range(4):
+                edge.append(v)
+                v = np.nextafter(v, np.float32(0))
+            v = np.float32(th)
+            for _ in range(4):
+                v = np.nextafter(v, np.float32(2))
+                edge.append(v)
+        edge = np.array(edge, dtype=np.float32)
+        expected = (edge[:, None].astype(np.float64) >= grid[None, :]).sum(axis=1)
+
+        # one score per tag, so each row's histogram has a single entry and its argmax is
+        # exactly that score's bin
+        samples = torch.from_numpy(edge.reshape(1, -1))
+        hist_all, _ = build_threshold_histograms(samples, torch.ones_like(samples))
+        assert hist_all.shape == (edge.size, 101)
+        np.testing.assert_array_equal(hist_all.sum(axis=1), np.ones(edge.size))
+        np.testing.assert_array_equal(expected, hist_all.argmax(axis=1))
 
 
 @pytest.mark.unittest

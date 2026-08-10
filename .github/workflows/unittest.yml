@@ -42,4 +42,11 @@ jobs:
       - name: Run unittest
         shell: bash
         run: |
-          python -m pytest test/multilabel/test_metrics.py -sv -m unittest
+          # --cov-fail-under=100 is deliberate: this runner has no GPU, so the gate is
+          # what guarantees the threshold maths stays fully decidable without one. A new
+          # line that only a CUDA machine can reach will fail here rather than quietly
+          # becoming untested.
+          python -m pytest test/multilabel/test_metrics.py -sv -m unittest \
+            --cov=animetimm.multilabel.metrics \
+            --cov-report=term-missing \
+            --cov-fail-under=100
