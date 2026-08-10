@@ -83,6 +83,8 @@ Histograms = Tuple[np.ndarray, np.ndarray]
 
 def threshold_grid(num_thresholds: int = 100) -> np.ndarray:
     """Candidate thresholds, ``num_thresholds`` points evenly spread over ``(0, 1]``."""
+    if num_thresholds < 1:
+        raise ValueError(f'num_thresholds must be at least 1, got {num_thresholds!r}.')
     return np.linspace(1.0 / num_thresholds, 1, num_thresholds)
 
 
@@ -152,7 +154,7 @@ class StreamingThresholdHistogram:
     def _bounds_for(self, sample):
         """Bin edges, built from the same np.linspace the offline path uses so both
         routes bucketize against bit-identical values."""
-        dtype = self.score_dtype or _bound_dtype(sample.dtype)
+        dtype = self.score_dtype if self.score_dtype is not None else _bound_dtype(sample.dtype)
         if self._bounds is None or self._bounds.dtype != dtype:
             self._bounds = torch.as_tensor(threshold_grid(self.num_thresholds),
                                            dtype=dtype, device=self._device)
@@ -167,6 +169,8 @@ class StreamingThresholdHistogram:
     def update(self, sample, labels):
         """Fold one batch in. ``sample`` holds sigmoid scores, ``labels`` the raw labels,
         both shaped ``(batch_size, tag_num)``."""
+        if sample.ndim != 2:
+            raise ValueError(f'Expected a (batch_size, tag_num) batch, got {sample.ndim} dimensions.')
         if sample.shape != labels.shape:
             raise ValueError(f'Sample shape {tuple(sample.shape)} does not match '
                              f'label shape {tuple(labels.shape)}.')
@@ -186,7 +190,7 @@ class StreamingThresholdHistogram:
         """Reduce across processes when running distributed, and hand back the
         ``(tag_num, num_thresholds + 1)`` histograms the searches consume."""
         if self.hist_all is None:
-            self._allocate(self._device or torch.device('cpu'))
+            self._allocate(self._device if self._device is not None else torch.device('cpu'))
 
         hist_all, hist_pos = self.hist_all, self.hist_pos
         if accelerator is not None and accelerator.num_processes > 1:
@@ -204,6 +208,8 @@ def build_threshold_histograms(all_sample, all_labels, num_thresholds: int = 100
 
     Tags are processed in chunks so peak memory stays bounded regardless of tag count.
     """
+    if all_sample.ndim != 2:
+        raise ValueError(f'Expected a (sample_num, tag_num) matrix, got {all_sample.ndim} dimensions.')
     if all_sample.shape != all_labels.shape:
         raise ValueError(f'Sample shape {tuple(all_sample.shape)} does not match '
                          f'label shape {tuple(all_labels.shape)}.')
@@ -281,12 +287,21 @@ def _pick(f1s, pres, recs, ths):
 
 
 def _resolve_histograms(all_sample, all_labels, num_thresholds, histograms, device):
-    if histograms is not None:
-        return histograms
-    if all_sample is None or all_labels is None:
-        raise ValueError('Either histograms, or both all_sample and all_labels, must be given.')
-    return build_threshold_histograms(all_sample, all_labels, num_thresholds=num_thresholds,
-                                      device=device)
+    if histograms is None:
+        if all_sample is None or all_labels is None:
+            raise ValueError('Either histograms, or both all_sample and all_labels, must be given.')
+        return build_threshold_histograms(all_sample, all_labels, num_thresholds=num_thresholds,
+                                          device=device)
+
+    hist_all, hist_pos = histograms
+    # a grid of the wrong size would still index without raising, and would silently
+    # report thresholds taken from the wrong grid
+    if hist_all.shape[-1] != num_thresholds + 1:
+        raise ValueError(f'Histograms have {hist_all.shape[-1]} bins, which corresponds to '
+                         f'{hist_all.shape[-1] - 1} thresholds, but num_thresholds is {num_thresholds}.')
+    if hist_all.shape != hist_pos.shape:
+        raise ValueError(f'Histogram shapes disagree: {hist_all.shape} versus {hist_pos.shape}.')
+    return histograms
 
 
 def compute_optimal_thresholds(all_sample=None, all_labels=None, alpha: float = 1.0, num_thresholds: int = 100,

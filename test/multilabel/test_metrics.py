@@ -170,6 +170,11 @@ class TestThresholdGrid:
         assert grid[-1] == pytest.approx(1.0)
         assert grid[0] == pytest.approx(1.0 / num_thresholds)
 
+    @pytest.mark.parametrize('num_thresholds', [0, -1])
+    def test_rejects_empty_grid(self, num_thresholds):
+        with pytest.raises(ValueError, match='at least 1'):
+            threshold_grid(num_thresholds)
+
 
 @pytest.mark.unittest
 class TestPerTagSearch:
@@ -288,6 +293,32 @@ class TestOfflineHistograms:
         with pytest.raises(ValueError, match='does not match'):
             build_threshold_histograms(samples, labels[:, :2])
 
+    def test_rejects_non_2d_input(self):
+        samples, labels = make_case(sample_num=64, tag_num=4)
+        with pytest.raises(ValueError, match='got 1 dimensions'):
+            build_threshold_histograms(samples[0], labels[0])
+
+    def test_rejects_histograms_built_for_a_different_grid(self):
+        """Indexing a 100-point grid with a 50-bin argmax would not raise on its own, it
+        would just report thresholds off the wrong grid."""
+        samples, labels = make_case(sample_num=128, tag_num=6, seed=25)
+        coarse = build_threshold_histograms(samples, labels, num_thresholds=50)
+        with pytest.raises(ValueError, match='num_thresholds is 100'):
+            compute_optimal_thresholds(histograms=coarse)
+        with pytest.raises(ValueError, match='num_thresholds is 100'):
+            compute_optimal_thresholds_by_categories(df_tags=category_frame(6), histograms=coarse)
+        # ... and it works when the caller says which grid the histograms belong to
+        assert_all_identical(
+            reference_optimal_thresholds(samples, labels, num_thresholds=50),
+            compute_optimal_thresholds(histograms=coarse, num_thresholds=50),
+        )
+
+    def test_rejects_mismatched_histogram_pair(self):
+        samples, labels = make_case(sample_num=128, tag_num=6, seed=26)
+        hist_all, hist_pos = build_threshold_histograms(samples, labels)
+        with pytest.raises(ValueError, match='shapes disagree'):
+            compute_optimal_thresholds(histograms=(hist_all, hist_pos[:3]))
+
 
 @pytest.mark.unittest
 class TestStreamingHistogram:
@@ -405,6 +436,12 @@ class TestStreamingHistogram:
         accumulator = StreamingThresholdHistogram(5)
         with pytest.raises(ValueError, match='Expected 5 tags'):
             accumulator.update(samples, labels)
+
+    def test_rejects_non_2d_batch(self):
+        samples, labels = make_case(sample_num=32, tag_num=4)
+        accumulator = StreamingThresholdHistogram(4)
+        with pytest.raises(ValueError, match='got 1 dimensions'):
+            accumulator.update(samples[0], labels[0])
 
 
 @pytest.mark.unittest
