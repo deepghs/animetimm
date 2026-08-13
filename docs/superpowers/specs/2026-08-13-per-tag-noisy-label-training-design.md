@@ -183,21 +183,31 @@ All six arms completed at 5,000 steps, then were re-scored through one code path
 audit data lives in the survey repo as `losses.md`; the frozen per-pair scores
 are `raw/covar/ablation_audited_scores.npz` there.
 
-**Threshold-matched comparison is mandatory.** ASL shifts the whole score
-distribution up: BCE's best threshold is 0.05, every ASL-family arm sits at
-0.55–0.60. An earlier reading at a fixed 0.30 said ASL had collapsed. It had
-not.
+**Threshold-matched comparison is mandatory, and the two F1s need separate
+thresholds.** ASL shifts the whole score distribution up, so the arms' optima sit
+on *opposite sides* of the in-run 0.3/0.4/0.5 grid — micro peaks at 0.20 for BCE
+and 0.70–0.75 for the ASL family, macro at 0.05 and 0.55–0.60. Three grid points,
+three different rankings. Quoting one "best threshold" per arm is also wrong:
+micro and macro peak 0.10–0.15 apart, and reading micro at macro's 0.60 shows
+`asl_matched` at 0.416 when its real optimum is 0.515 at 0.725.
+
+One artefact ruled out along the way: the in-run evaluation scores the *prepared*
+module, so it runs under bf16 autocast, while `posthoc_eval.py` is fp32 on a bare
+module. Reading the same weights on a 0.025 grid in both dtypes puts every
+micro/macro difference within ±0.003, and the score mass in the disputed
+0.50–0.55 band at 0.554% vs 0.558%. Precision is not a variable here.
+`tools/threshold_curve_probe.py`.
 
 **ASL over BCE is a large, three-way-consistent win.**
 
-| arm | audited AUC (pooled) | dbv4 micro-F1 | dbv4 macro-F1 | diligent macro-F1 |
-|---|---:|---:|---:|---:|
-| `bce` | 0.7435 | 0.4444 | 0.0215 | 0.0604 |
-| `asl` | 0.8709 | 0.5119 | 0.1504 | 0.2051 |
-| `asl_matched` | 0.8733 | 0.5113 | 0.1620 | 0.2123 |
-| `pasl_gamma` | 0.8704 | 0.4871 | 0.1287 | 0.1945 |
-| `pasl_topk` | 0.8410 | 0.4596 | 0.1305 | 0.1970 |
-| `pasl_dilig` | 0.8306 | 0.4434 | 0.1305 | 0.1967 |
+| arm | audited AUC (pooled) | dbv4 micro-F1 | @th | dbv4 macro-F1 | @th | diligent macro-F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| `bce` | 0.7435 | 0.4444 | 0.20 | 0.0215 | 0.05 | 0.0604 |
+| `asl` | 0.8709 | 0.5119 | 0.70 | 0.1504 | 0.55 | 0.2051 |
+| `asl_matched` | 0.8733 | 0.5113 | 0.70 | 0.1620 | 0.60 | 0.2123 |
+| `pasl_gamma` | 0.8704 | 0.4871 | 0.70 | 0.1287 | 0.60 | 0.1945 |
+| `pasl_topk` | 0.8410 | 0.4596 | 0.75 | 0.1305 | 0.60 | 0.1970 |
+| `pasl_dilig` | 0.8306 | 0.4434 | 0.75 | 0.1305 | 0.60 | 0.1967 |
 
 Part of that gap is a budget artefact: 5,000 steps is roughly half an epoch, and
 BCE needs longer to push rare-tag logits over any threshold, which is why its
