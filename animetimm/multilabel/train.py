@@ -29,6 +29,9 @@ from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value, par
 _DEFAULT_BETAS = (0.9, 0.999)
 
 
+DEFAULT_GAMMA_NEG = {'asl': 4.0, 'pasl': 2.0}
+
+
 def _make_loss_fn(loss, tags_info, gamma_neg, gamma_pos, gamma_unann, clip,
                   prior_file, prior_column, ignore_topk, diligence,
                   diligence_lo, diligence_hi, diligence_max_scale):
@@ -41,6 +44,12 @@ def _make_loss_fn(loss, tags_info, gamma_neg, gamma_pos, gamma_unann, clip,
     """
     if loss == 'bce':
         return BCEWithLogitsLoss(reduction='none')
+    if gamma_neg is None:
+        # The two losses want different defaults and sharing one number is a
+        # footgun: 2.0 is the *reliable end* of pasl's per-tag interpolation, so
+        # handing it to plain asl silently trains a much weaker asymmetry than
+        # the one that was ablated.
+        gamma_neg = DEFAULT_GAMMA_NEG[loss]
     if loss == 'asl':
         return build_loss('asl', gamma_neg=gamma_neg, gamma_pos=gamma_pos, clip=clip)
     if loss != 'pasl':
@@ -607,8 +616,10 @@ def train(
 @click.option('--loss', 'loss_name', default='bce', type=click.Choice(LOSS_NAMES),
               help='Training loss. bce is the historical path and the default.',
               show_default=True)
-@click.option('--loss-gamma-neg', default=2.0, type=float,
-              help='Negative focusing parameter (asl/pasl).', show_default=True)
+@click.option('--loss-gamma-neg', default=None, type=float,
+              help='Negative focusing parameter. Defaults per loss: 4.0 for asl '
+                   '(the ablated value), 2.0 for pasl (the reliable end of the '
+                   'per-tag interpolation).')
 @click.option('--loss-gamma-pos', default=0.0, type=float,
               help='Positive focusing parameter (asl/pasl).', show_default=True)
 @click.option('--loss-gamma-unann', default=7.0, type=float,

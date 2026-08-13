@@ -278,3 +278,45 @@ class TestTrainIntegration:
         # ones must not be softened
         assert fn.neg_gamma[0] == pytest.approx(7.0, abs=1e-4)
         assert all(g == pytest.approx(2.0, abs=1e-4) for g in fn.neg_gamma[1:])
+
+
+class TestGammaNegDefaults:
+    """`--loss-gamma-neg` has to resolve per loss, not share one number.
+
+    2.0 is the reliable *end* of pasl's per-tag interpolation.  Handing that to
+    plain asl trains a far weaker asymmetry than the 4.0 that was ablated, and
+    silently -- the run looks fine, it is just a different experiment.
+    """
+
+    @staticmethod
+    def _build(**kw):
+        # deferred like TestTrainIntegration: importing train at module scope
+        # pulls in the whole training stack
+        from animetimm.multilabel.train import _make_loss_fn
+        base = dict(loss='asl', tags_info=None, gamma_neg=None, gamma_pos=0.0,
+                    gamma_unann=7.0, clip=0.05, prior_file=None,
+                    prior_column='reliability', ignore_topk=0, diligence=False,
+                    diligence_lo=12.0, diligence_hi=48.0,
+                    diligence_max_scale=2.0)
+        return _make_loss_fn(**{**base, **kw})
+
+    def test_asl_default_is_the_ablated_value(self):
+        assert pytest.approx(float(self._build().gamma_neg)) == 4.0
+
+    def test_explicit_value_still_wins(self):
+        assert pytest.approx(float(self._build(gamma_neg=4.5).gamma_neg)) == 4.5
+
+    def test_pasl_default_is_the_interpolation_floor(self):
+        from animetimm.multilabel.train import DEFAULT_GAMMA_NEG
+        assert DEFAULT_GAMMA_NEG['pasl'] == 2.0
+        assert DEFAULT_GAMMA_NEG['asl'] == 4.0
+        # pasl resolving its own floor, with a tags_info that carries no prior
+        # column so the per-tag path is not taken
+        import pandas as pd
+        from animetimm.multilabel.dataset import TagsInfo
+        df = pd.DataFrame({'name': ['a', 'b'], 'category': [0, 0]})
+        ti = TagsInfo(df=df, tags_to_id={'a': 0, 'b': 1}, tags=['a', 'b'],
+                      weights=1.0)
+        fn = self._build(loss='pasl', tags_info=ti)
+        assert fn.neg_gamma is None, 'no prior column means no per-tag schedule'
+        assert pytest.approx(float(fn.gamma_neg)) == 2.0
