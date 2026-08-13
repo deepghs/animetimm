@@ -6,6 +6,7 @@ from pprint import pformat
 from typing import Optional, Sequence, List, Tuple
 
 import click
+import numpy as np
 import pandas as pd
 import torch
 from accelerate import Accelerator
@@ -18,6 +19,7 @@ from torch.optim import lr_scheduler
 from tqdm import tqdm
 
 from .dataset import load_tags, load_dataloader
+from .losses import LOSS_NAMES, build_loss, neg_gamma_from_scores
 from .metrics import mcc, f1score, precision, recall
 from ..dataset import load_pretrained_tag
 from ..model import Model
@@ -25,6 +27,68 @@ from ..session import TrainSession
 from ..utils import GLOBAL_CONTEXT_SETTINGS, print_version, parse_key_value, parse_tuple
 
 _DEFAULT_BETAS = (0.9, 0.999)
+
+
+def _make_loss_fn(loss, tags_info, gamma_neg, gamma_pos, gamma_unann, clip,
+                  prior_file, prior_column, ignore_topk, diligence,
+                  diligence_lo, diligence_hi, diligence_max_scale):
+    """Build the training loss.  ``bce`` reproduces the historical path exactly.
+
+    For ``pasl`` an optional per-tag reliability table turns into a per-tag
+    negative focusing parameter.  The table is joined on tag name and aligned to
+    the model's tag order; tags missing from it are treated as reliable, i.e.
+    they keep the plain ``gamma_neg`` and behave as they would under ASL.
+    """
+    if loss == 'bce':
+        return BCEWithLogitsLoss(reduction='none')
+    if loss == 'asl':
+        return build_loss('asl', gamma_neg=gamma_neg, gamma_pos=gamma_pos, clip=clip)
+    if loss != 'pasl':
+        raise ValueError(f'Unknown loss {loss!r}, expected one of {LOSS_NAMES!r}.')
+
+    # Two entry points for the per-tag prior, explicit beating implicit:
+    #   1. --loss-prior-file, a parquet/csv keyed by tag name;
+    #   2. a column of the dataset's own tags.parquet, which rides along in
+    #      TagsInfo.df already in model tag order.
+    # The second is the intended long-term home -- precomputed columns shipped
+    # with the dataset mean the trainer needs no side files at all.
+    neg_gamma, prior_source = None, None
+    scores = None
+    if prior_file:
+        df_prior = pd.read_parquet(prior_file) if prior_file.endswith('.parquet') \
+            else pd.read_csv(prior_file)
+        if prior_column not in df_prior.columns:
+            raise KeyError(f'{prior_file!r} has no column {prior_column!r}; '
+                           f'available: {list(df_prior.columns)}')
+        mapping = dict(zip(df_prior['name'], df_prior[prior_column]))
+        missing = [t for t in tags_info.tags if t not in mapping]
+        if missing:
+            logging.warning(f'{plural_word(len(missing), "tag")} absent from '
+                            f'{prior_file!r}; they keep gamma_neg={gamma_neg}.')
+        scores = np.array([mapping.get(t, np.nan) for t in tags_info.tags],
+                          dtype=np.float32)
+        prior_source = f'file:{prior_file}'
+    elif prior_column in tags_info.df.columns:
+        scores = tags_info.df[prior_column].to_numpy(dtype=np.float32)
+        prior_source = f'dataset-column:{prior_column}'
+
+    if scores is not None:
+        neg_gamma = neg_gamma_from_scores(scores, gamma_neg=gamma_neg,
+                                          gamma_unann=gamma_unann)
+        logging.info(f'Per-tag negative focusing from {prior_source}: '
+                     f'min={neg_gamma.min():.2f} median={neg_gamma.median():.2f} '
+                     f'max={neg_gamma.max():.2f}')
+    else:
+        logging.info(f'No per-tag prior found (column {prior_column!r} absent '
+                     f'from the tags table and no --loss-prior-file given); '
+                     f'every tag keeps gamma_neg={gamma_neg}.')
+    return build_loss(
+        'pasl', gamma_neg=gamma_neg, gamma_pos=gamma_pos,
+        gamma_unann=gamma_unann, clip=clip, neg_gamma=neg_gamma,
+        ignore_topk=ignore_topk, diligence_modulate=diligence,
+        diligence_lo=diligence_lo, diligence_hi=diligence_hi,
+        diligence_max_scale=diligence_max_scale,
+    )
 
 
 def train(
@@ -56,6 +120,18 @@ def train(
         use_pretrained_weight: bool = True,
         adam_betas: Optional[Tuple[float, float]] = None,
         use_normalize: bool = False,
+        loss_name: str = 'bce',
+        loss_gamma_neg: float = 2.0,
+        loss_gamma_pos: float = 0.0,
+        loss_gamma_unann: float = 7.0,
+        loss_clip: float = 0.05,
+        loss_prior_file: Optional[str] = None,
+        loss_prior_column: str = 'reliability',
+        loss_ignore_topk: int = 0,
+        loss_diligence: bool = False,
+        loss_diligence_lo: float = 12.0,
+        loss_diligence_hi: float = 48.0,
+        loss_diligence_max_scale: float = 2.0,
 ):
     accelerator = Accelerator(
         # mixed_precision=self.cfgs.mixed_precision,
@@ -151,6 +227,19 @@ def train(
         'use_pretrained_weight': use_pretrained_weight,
         'adam_betas': adam_betas,
         'use_normalize': use_normalize,
+        'loss': loss_name,
+        **({} if loss_name == 'bce' else {
+            'loss_gamma_neg': loss_gamma_neg,
+            'loss_gamma_pos': loss_gamma_pos,
+            'loss_clip': loss_clip,
+        }),
+        **({} if loss_name != 'pasl' else {
+            'loss_gamma_unann': loss_gamma_unann,
+            'loss_prior_file': loss_prior_file,
+            'loss_prior_column': loss_prior_column,
+            'loss_ignore_topk': loss_ignore_topk,
+            'loss_diligence': loss_diligence,
+        }),
     }
     if accelerator.is_main_process:
         logging.info(f'Training configurations: {train_cfg!r}.')
@@ -183,6 +272,18 @@ def train(
         seen_tag_keys=seen_tag_keys,
         image_key=image_key,
         use_normalize=use_normalize,
+        loss_name=loss_name,
+        loss_gamma_neg=loss_gamma_neg,
+        loss_gamma_pos=loss_gamma_pos,
+        loss_gamma_unann=loss_gamma_unann,
+        loss_clip=loss_clip,
+        loss_prior_file=loss_prior_file,
+        loss_prior_column=loss_prior_column,
+        loss_ignore_topk=loss_ignore_topk,
+        loss_diligence=loss_diligence,
+        loss_diligence_lo=loss_diligence_lo,
+        loss_diligence_hi=loss_diligence_hi,
+        loss_diligence_max_scale=loss_diligence_max_scale,
     )
     eval_dataloader = load_dataloader(
         repo_id=dataset_repo_id,
@@ -199,7 +300,15 @@ def train(
         use_normalize=use_normalize,
     )
 
-    loss_fn = BCEWithLogitsLoss(reduction='none')
+    loss_fn = _make_loss_fn(
+        loss=loss_name, tags_info=tags_info, gamma_neg=loss_gamma_neg,
+        gamma_pos=loss_gamma_pos, gamma_unann=loss_gamma_unann, clip=loss_clip,
+        prior_file=loss_prior_file, prior_column=loss_prior_column,
+        ignore_topk=loss_ignore_topk, diligence=loss_diligence,
+        diligence_lo=loss_diligence_lo, diligence_hi=loss_diligence_hi,
+        diligence_max_scale=loss_diligence_max_scale,
+    )
+    logging.info(f'Loss function: {loss_fn!r}')
     optimizer = torch.optim.AdamW(
         filter(lambda p: p.requires_grad, module.parameters()),
         lr=learning_rate,
@@ -495,9 +604,43 @@ def train(
               help='Beta values for adam-like optimizers.', show_default=True)
 @click.option('--use_normalize', '-un', 'use_normalize', is_flag=True, type=bool, default=False,
               help='Use normalize value from dataset repository.', show_default=True)
+@click.option('--loss', 'loss_name', default='bce', type=click.Choice(LOSS_NAMES),
+              help='Training loss. bce is the historical path and the default.',
+              show_default=True)
+@click.option('--loss-gamma-neg', default=2.0, type=float,
+              help='Negative focusing parameter (asl/pasl).', show_default=True)
+@click.option('--loss-gamma-pos', default=0.0, type=float,
+              help='Positive focusing parameter (asl/pasl).', show_default=True)
+@click.option('--loss-gamma-unann', default=7.0, type=float,
+              help='Negative focusing for the least reliable tags (pasl).',
+              show_default=True)
+@click.option('--loss-clip', default=0.05, type=float,
+              help='Probability shift for negatives (asl/pasl).', show_default=True)
+@click.option('--loss-prior-file', default=None, type=str,
+              help='Per-tag label-reliability table (parquet/csv with a name '
+                   'column) used to set per-tag negative focusing (pasl).',
+              show_default=True)
+@click.option('--loss-prior-column', default='reliability', type=str,
+              help='Column of --loss-prior-file holding the reliability score.',
+              show_default=True)
+@click.option('--loss-ignore-topk', default=0, type=int,
+              help='Drop this many highest-scoring negatives per sample (pasl).',
+              show_default=True)
+@click.option('--loss-diligence/--no-loss-diligence', default=False,
+              help='Scale the top-k gate by how thoroughly the sample was '
+                   'tagged (pasl).', show_default=True)
+@click.option('--loss-diligence-lo', default=12.0, type=float, show_default=True,
+              help='Label count treated as minimally diligent.')
+@click.option('--loss-diligence-hi', default=48.0, type=float, show_default=True,
+              help='Label count treated as fully diligent.')
+@click.option('--loss-diligence-max-scale', default=2.0, type=float,
+              show_default=True, help='Top-k multiplier at minimal diligence.')
 def cli(dataset_repo_id, max_epochs, model_name, size, num_workers, batch_size, learning_rate, weight_decay,
         key_metric, seed, eval_epoch, eval_threshold, noise_level, rotation_ratio, mixup_alpha,
         cutout_max_pct, cutout_patches, random_resize_method, pre_align, align_size,
+        loss_name, loss_gamma_neg, loss_gamma_pos, loss_gamma_unann, loss_clip,
+        loss_prior_file, loss_prior_column, loss_ignore_topk, loss_diligence,
+        loss_diligence_lo, loss_diligence_hi, loss_diligence_max_scale,
         tag_categories, seen_tag_keys, drop_path_rate, workdir, model_arg, image_key, suffix, use_pretrained_weight,
         adam_betas, use_normalize):
     logging.try_init_root(logging.INFO)

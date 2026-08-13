@@ -20,10 +20,28 @@ def mcc(tp, fp, tn, fn, mean: bool = True):
     return v
 
 
-def f1score(tp, fp, tn, fn, alpha: float = 1.0, mean: bool = True):
+def f1score(tp, fp, tn, fn, beta=1.0, mean: bool = True, alpha=None):
+    """F-beta over a confusion matrix.  ``beta`` is the usual recall weight.
+
+    ``beta > 1`` favours recall.  That is not cosmetic here: dbv4's labels are
+    high-precision and low-recall, so measured precision is depressed by roughly
+    the tag's label recall while measured recall is unbiased, and scoring with
+    beta = 1 quietly rewards models that under-predict.  See
+    `docs/superpowers/specs/2026-08-13-per-tag-noisy-label-training-design.md`.
+
+    ``beta`` may be a scalar or a per-tag tensor broadcastable against ``tp``.
+
+    ``alpha`` is accepted as a deprecated alias.  It used to mean beta-squared
+    here and plain beta in :func:`_curves` -- the same name for two different
+    quantities, invisible only because every call site passed 1.0, where they
+    coincide.  It is now a synonym for ``beta`` in both places.
+    """
     _ = tn
-    numerator = (1 + alpha) * tp
-    denominator = (1 + alpha) * tp + alpha * fn + fp
+    if alpha is not None:
+        beta = alpha
+    beta_sq = beta ** 2
+    numerator = (1 + beta_sq) * tp
+    denominator = (1 + beta_sq) * tp + beta_sq * fn + fp
 
     mask = denominator == 0
     if mask.any():
@@ -253,11 +271,28 @@ def build_threshold_histograms(all_sample, all_labels, num_thresholds: int = 100
     return hist_all, hist_pos
 
 
-def _curves(hist_all, hist_pos, alpha: float):
-    """Turn bin histograms into f1/precision/recall at every threshold.
+def _cat_beta(beta, mask):
+    """Reduce a per-tag beta to the single value a category-level curve needs.
+
+    A category's threshold is fitted on its tags' pooled confusion matrix, so
+    only one beta can apply.  The plain mean over the category's tags is used:
+    weighting by tag frequency would let a handful of huge tags set the recall
+    preference for the whole category, which is the opposite of what a per-tag
+    correction is for.
+    """
+    b = np.asarray(beta, dtype=np.float64)
+    return float(b[mask].mean()) if b.ndim == 1 else float(b)
+
+
+def _curves(hist_all, hist_pos, beta):
+    """Turn bin histograms into f-beta/precision/recall at every threshold.
 
     ``suffix[..., j]`` counts the scores landing in bin ``j`` or above, which is exactly
     the number of positives predicted at ``thresholds[j - 1]``.
+
+    ``beta`` is a scalar or a per-tag array of shape ``(n_tags,)``; a per-tag beta is
+    the point of the whole exercise, since the credibility of a measured precision
+    varies from tag to tag by a factor of three.
     """
     suffix_all = np.cumsum(hist_all[..., ::-1], axis=-1)[..., ::-1]
     suffix_pos = np.cumsum(hist_pos[..., ::-1], axis=-1)[..., ::-1]
@@ -267,7 +302,9 @@ def _curves(hist_all, hist_pos, alpha: float):
 
     p = tp / (tp + fp + 1e-12)
     r = tp / (tp + fn + 1e-12)
-    beta_sq = alpha ** 2
+    beta_sq = np.asarray(beta, dtype=np.float64) ** 2
+    if beta_sq.ndim == 1:
+        beta_sq = beta_sq[:, None]
     f1 = (1 + beta_sq) * p * r / (beta_sq * p + r + 1e-12)
     return f1, p, r
 
@@ -312,7 +349,7 @@ def _resolve_histograms(all_sample, all_labels, num_thresholds, histograms, devi
     return histograms
 
 
-def compute_optimal_thresholds(all_sample=None, all_labels=None, alpha: float = 1.0, num_thresholds: int = 100,
+def compute_optimal_thresholds(all_sample=None, all_labels=None, beta=1.0, alpha=None, num_thresholds: int = 100,
                                max_workers: Optional[int] = None, histograms: Optional[Histograms] = None,
                                device=None):
     """Per-tag optimal thresholds and the f1/precision/recall attained there.
@@ -325,14 +362,16 @@ def compute_optimal_thresholds(all_sample=None, all_labels=None, alpha: float = 
     longer uses a thread pool.
     """
     _ = max_workers
+    if alpha is not None:
+        beta = alpha
     hist_all, hist_pos = _resolve_histograms(all_sample, all_labels, num_thresholds, histograms, device)
     thresholds = threshold_grid(num_thresholds)
-    f1s, pres, recs = _curves(hist_all, hist_pos, alpha)
+    f1s, pres, recs = _curves(hist_all, hist_pos, beta)
     best_thresholds, best_f1, best_precision, best_recall = _pick(f1s, pres, recs, thresholds)
     return best_thresholds, best_f1, best_precision, best_recall
 
 
-def compute_optimal_thresholds_by_categories(all_sample=None, all_labels=None, df_tags=None, alpha: float = 1.0,
+def compute_optimal_thresholds_by_categories(all_sample=None, all_labels=None, df_tags=None, beta=1.0, alpha=None,
                                              num_thresholds: int = 100, max_workers: Optional[int] = None,
                                              histograms: Optional[Histograms] = None, device=None):
     """Optimal threshold per tag category, micro-averaged over the tags in it.
@@ -356,7 +395,8 @@ def compute_optimal_thresholds_by_categories(all_sample=None, all_labels=None, d
     best_f1, best_precision, best_recall, best_thresholds = {}, {}, {}, {}
     for category in sorted(set(categories.tolist())):
         mask = categories == category
-        f1s, pres, recs = _curves(hist_all[mask].sum(0)[None], hist_pos[mask].sum(0)[None], alpha)
+        f1s, pres, recs = _curves(hist_all[mask].sum(0)[None], hist_pos[mask].sum(0)[None],
+                                  _cat_beta(beta, mask))
         th, f1, p, r = _pick(f1s, pres, recs, thresholds)
         best_thresholds[category] = float(th[0])
         best_f1[category] = float(f1[0])

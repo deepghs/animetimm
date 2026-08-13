@@ -271,16 +271,21 @@ class TestConfusionMetrics:
         # every prediction inverted
         assert mcc(*self.counts(0, 50, 0, 50)).item() == pytest.approx(-1.0, rel=1e-5)
 
-    def test_alpha_is_beta_squared_not_beta(self):
-        """Locks a quirk worth knowing: `f1score`'s alpha is the *squared* beta of the
-        usual F-beta, while `compute_optimal_thresholds` squares its own alpha. Both are
-        called with alpha=1.0 in this repository, where the two conventions coincide."""
+    def test_alpha_and_beta_now_mean_the_same_thing(self):
+        """Was `test_alpha_is_beta_squared_not_beta`, which pinned a quirk: `f1score`
+        read alpha as the *squared* beta while `_curves` squared its own alpha, so the
+        same argument named two different quantities. That was invisible while every
+        call site passed 1.0. Per-tag F-beta thresholds (2026-08-13) are the first real
+        use of non-unit values, so the two were unified on the textbook beta and `alpha`
+        kept as an alias. Default behaviour is unchanged; only non-unit callers move."""
         args = self.counts(3, 3, 4, 1)   # p = 0.5, r = 0.75
         p_, r_ = 0.5, 0.75
-        f_beta_sq_4 = (1 + 4) * p_ * r_ / (4 * p_ + r_)
         f_beta_4 = (1 + 16) * p_ * r_ / (16 * p_ + r_)
-        assert f1score(*args, alpha=4).item() == pytest.approx(f_beta_sq_4, rel=1e-6)
-        assert f1score(*args, alpha=4).item() != pytest.approx(f_beta_4, rel=1e-6)
+        assert f1score(*args, beta=4).item() == pytest.approx(f_beta_4, rel=1e-6)
+        assert f1score(*args, alpha=4).item() == pytest.approx(f_beta_4, rel=1e-6)
+        # and it now agrees with the threshold-fitting curves, which always squared
+        assert f1score(*args, beta=1.0).item() == pytest.approx(
+            2 * p_ * r_ / (p_ + r_), rel=1e-6)
 
     @pytest.mark.parametrize('tp,fp,tn,fn', [
         (0, 0, 10, 0),    # nothing predicted positive, nothing actually positive
